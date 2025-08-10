@@ -140,6 +140,7 @@ export class BukaViewer {
 
 				<div class="${classes.toolbarSection}" style="display: ${this.options.enableSearch ? "flex" : "none"}">
 					<input id="searchInput" class="${classes.searchInput}" type="text" placeholder="Search..." />
+					<button id="searchBtn" class="${classes.btn}">🔍</button>
 					<button id="searchPrev" class="${classes.btn}">⌃</button>
 					<button id="searchNext" class="${classes.btn}">⌄</button>
 				</div>
@@ -197,6 +198,10 @@ export class BukaViewer {
 		});
 
 		this.container
+			.querySelector("#searchBtn")
+			?.addEventListener("click", () => this.performSearch());
+
+		this.container
 			.querySelector("#searchPrev")
 			?.addEventListener("click", () => this.previousSearchResult());
 		this.container
@@ -216,6 +221,12 @@ export class BukaViewer {
 
 	async load(source: string | File | Blob): Promise<void> {
 		try {
+			// Clean up previous document
+			this.cleanup();
+			
+			// Show loading indicator
+			this.showLoading("Loading document...");
+			
 			const mimeType = await DocumentDetector.detectType(source);
 			const documentContainer = this.container.querySelector(
 				".buka-document-container"
@@ -244,6 +255,9 @@ export class BukaViewer {
 			await this.currentRenderer.load(source);
 			await this.currentRenderer.render();
 
+			// Hide loading indicator immediately after render
+			this.hideLoading();
+
 			if (this.options.enableThumbnails) {
 				await this.generateThumbnails();
 			}
@@ -255,6 +269,7 @@ export class BukaViewer {
 				totalPages: this.currentRenderer.totalPages
 			});
 		} catch (error) {
+			this.hideLoading();
 			this.emit(EVENTS.ERROR, error);
 			throw error;
 		}
@@ -358,16 +373,13 @@ export class BukaViewer {
 		thumbnailContainer.innerHTML = '';
 
 		try {
-			console.log('Starting thumbnail generation for', this.currentRenderer.totalPages, 'pages');
 			// Generate thumbnails for each page
 			for (let pageNum = 1; pageNum <= this.currentRenderer.totalPages; pageNum++) {
 				const thumbnail = await this.generatePageThumbnail(pageNum);
 				if (thumbnail) {
-					console.log('Generated thumbnail for page', pageNum);
 					thumbnailContainer.appendChild(thumbnail);
 				}
 			}
-			console.log('Thumbnail generation completed');
 		} catch (error) {
 			console.warn('Failed to generate thumbnails:', error);
 		}
@@ -416,12 +428,10 @@ export class BukaViewer {
 		const renderer = this.currentRenderer as any; // Cast to access PDF-specific properties
 		
 		if (!renderer.pdfDocument) {
-			console.warn('No PDF document available for thumbnail generation');
 			return null;
 		}
 
 		try {
-			console.log('Generating PDF thumbnail for page', pageNum);
 			const page = await renderer.pdfDocument.getPage(pageNum);
 			const canvas = document.createElement('canvas');
 			const context = canvas.getContext('2d');
@@ -442,7 +452,6 @@ export class BukaViewer {
 			};
 
 			await page.render(renderContext).promise;
-			console.log('PDF thumbnail rendered successfully for page', pageNum);
 			return canvas;
 		} catch (error) {
 			console.warn(`Failed to generate PDF thumbnail for page ${pageNum}:`, error);
@@ -504,11 +513,23 @@ export class BukaViewer {
 	}
 
 	nextSearchResult(): void {
-		// Implementation depends on renderer
+		if (this.currentRenderer && this.currentRenderer.searchResults && this.currentRenderer.searchResults.length > 0) {
+			this.currentRenderer.currentSearchIndex = (this.currentRenderer.currentSearchIndex + 1) % this.currentRenderer.searchResults.length;
+			const result = this.currentRenderer.searchResults[this.currentRenderer.currentSearchIndex];
+			if (result && result.page) {
+				this.currentRenderer.goto(result.page);
+			}
+		}
 	}
 
 	previousSearchResult(): void {
-		// Implementation depends on renderer
+		if (this.currentRenderer && this.currentRenderer.searchResults && this.currentRenderer.searchResults.length > 0) {
+			this.currentRenderer.currentSearchIndex = (this.currentRenderer.currentSearchIndex - 1 + this.currentRenderer.searchResults.length) % this.currentRenderer.searchResults.length;
+			const result = this.currentRenderer.searchResults[this.currentRenderer.currentSearchIndex];
+			if (result && result.page) {
+				this.currentRenderer.goto(result.page);
+			}
+		}
 	}
 
 	// Fullscreen
@@ -520,11 +541,69 @@ export class BukaViewer {
 		}
 	}
 
-	// Cleanup
-	destroy(): void {
+	// Loading indicator methods
+	showLoading(message: string = "Loading..."): void {
+		const documentContainer = this.container.querySelector(".buka-document-container") as HTMLElement;
+		if (documentContainer) {
+			documentContainer.innerHTML = `
+				<div class="buka-loading">
+					<div class="buka-spinner"></div>
+					<div style="margin-top: 10px;">${message}</div>
+				</div>
+			`;
+		}
+	}
+
+	hideLoading(): void {
+		const documentContainer = this.container.querySelector(".buka-document-container") as HTMLElement;
+		if (documentContainer) {
+			// Only clear if it contains loading content
+			const loadingElement = documentContainer.querySelector('.buka-loading');
+			if (loadingElement) {
+				loadingElement.remove();
+			}
+		}
+	}
+
+	// Cleanup methods
+	cleanup(): void {
+		// Clear thumbnails
+		this.thumbnails = [];
+		this.currentThumbnailPage = 0;
+		
+		// Clear thumbnail container
+		const thumbnailContainer = this.container.querySelector("#thumbnailContainer");
+		if (thumbnailContainer) {
+			thumbnailContainer.innerHTML = '';
+		}
+		
+		// Hide thumbnails sidebar
+		this.hideThumbnails();
+		
+		// Clear search input
+		this.clearSearch();
+		
+		// Reset zoom display
+		const zoomBtn = this.container.querySelector("#zoomReset") as HTMLElement;
+		if (zoomBtn) {
+			zoomBtn.textContent = "100%";
+		}
+		
+		// Reset page display
+		const pageTotal = this.container.querySelector("#pageTotal") as HTMLElement;
+		const pageInput = this.container.querySelector("#pageInput") as HTMLInputElement;
+		if (pageTotal) pageTotal.textContent = "/ 1";
+		if (pageInput) pageInput.value = "1";
+		
+		// Destroy current renderer
 		if (this.currentRenderer) {
 			this.currentRenderer.destroy();
+			this.currentRenderer = null;
 		}
+	}
+
+	destroy(): void {
+		this.cleanup();
 		this.eventListeners?.clear();
 		this.container.innerHTML = "";
 	}

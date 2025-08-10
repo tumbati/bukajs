@@ -13,6 +13,8 @@ export abstract class BaseRenderer {
 	public zoomFactor: number;
 	public annotations: Map<string, Annotation>;
 	public eventListeners: Map<string, Set<EventCallback>>;
+	public searchResults: SearchResult[];
+	public currentSearchIndex: number;
 
 	constructor(container: HTMLElement, options: ViewerOptions = {}) {
 		this.container = container;
@@ -22,6 +24,8 @@ export abstract class BaseRenderer {
 		this.zoomFactor = 1.0;
 		this.annotations = new Map();
 		this.eventListeners = new Map();
+		this.searchResults = [];
+		this.currentSearchIndex = 0;
 	}
 
 	abstract load(source: string | File | Blob): Promise<void>;
@@ -100,6 +104,10 @@ export abstract class BaseRenderer {
 
 	get zoom(): number {
 		return this.zoomFactor;
+	}
+	
+	set zoom(value: number) {
+		this.zoomFactor = value;
 	}
 
 	destroy(): void {

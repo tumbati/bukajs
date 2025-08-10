@@ -11,8 +11,13 @@ export class PDFRenderer extends BaseRenderer {
 	public canvas: HTMLCanvasElement | null;
 	public context: CanvasRenderingContext2D | null;
 	public textLayer: HTMLElement | null;
+	public scrollContainer: HTMLElement | null;
+	public documentWrapper: HTMLElement | null;
+	public pageElements: HTMLElement[];
 	public searchResults: SearchResult[];
 	public currentSearchIndex: number;
+	private lastRenderedZoom: number;
+	private scrollHandler: (() => void) | null;
 
 	constructor(container: HTMLElement, options = {}) {
 		super(container, options);
@@ -21,13 +26,48 @@ export class PDFRenderer extends BaseRenderer {
 		this.canvas = null;
 		this.context = null;
 		this.textLayer = null;
+		this.scrollContainer = null;
+		this.documentWrapper = null;
+		this.pageElements = [];
 		this.searchResults = [];
 		this.currentSearchIndex = 0;
 		this.zoomFactor = 1.0;
+		this.lastRenderedZoom = 0;
+		this.scrollHandler = null;
 		this.setupCanvas();
 	}
 
 	setupCanvas(): void {
+		// Create scrollable container for continuous viewing
+		const scrollContainer = document.createElement("div");
+		scrollContainer.className = "buka-pdf-scroll-container";
+		scrollContainer.style.cssText = `
+			width: 100%;
+			height: 100%;
+			overflow: auto;
+			position: relative;
+			background: #f0f0f0;
+		`;
+
+		// Create document container for all pages
+		const documentWrapper = document.createElement("div");
+		documentWrapper.className = "buka-pdf-document-wrapper";
+		documentWrapper.style.cssText = `
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			padding: 20px;
+			gap: 20px;
+		`;
+
+		scrollContainer.appendChild(documentWrapper);
+		this.container.appendChild(scrollContainer);
+
+		// Store references
+		this.scrollContainer = scrollContainer;
+		this.documentWrapper = documentWrapper;
+
+		// Single page mode canvas (for compatibility)
 		this.canvas = document.createElement("canvas");
 		this.canvas.className = "buka-pdf-canvas";
 		this.context = this.canvas.getContext("2d");
@@ -42,14 +82,13 @@ export class PDFRenderer extends BaseRenderer {
 			opacity: 0.2;
 			line-height: 1.0;
 		`;
-
-		this.container.style.position = "relative";
-		this.container.appendChild(this.canvas);
-		this.container.appendChild(this.textLayer);
 	}
 
 	async load(source: string | File | Blob): Promise<void> {
 		try {
+			// Clean up any previous document
+			await this.cleanup();
+			
 			const pdfjsLib = await this.loadPDFJS();
 
 			let typedArray: Uint8Array;
@@ -72,7 +111,8 @@ export class PDFRenderer extends BaseRenderer {
 			this.pdfDocument = await loadingTask.promise;
 			this.totalPages = this.pdfDocument.numPages;
 
-			await this.loadPage(1);
+			// Render all pages for continuous scrolling
+			await this.renderAllPages();
 
 			this.emit(EVENTS.DOCUMENT_LOADED, {
 				totalPages: this.totalPages,
@@ -110,26 +150,207 @@ export class PDFRenderer extends BaseRenderer {
 		await this.render();
 	}
 
+	async renderAllPages(): Promise<void> {
+		if (!this.pdfDocument || !this.documentWrapper) return;
+
+		// Clear existing pages only if starting fresh
+		if (this.pageElements.length === 0) {
+			this.documentWrapper.innerHTML = '';
+			
+			for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
+				const pageElement = await this.renderSinglePage(pageNum);
+				if (pageElement) {
+					this.documentWrapper.appendChild(pageElement);
+					this.pageElements.push(pageElement);
+				}
+			}
+
+			// Set up scroll listener to track current page
+			if (this.scrollContainer && !this.scrollHandler) {
+				this.scrollHandler = this.handleScroll.bind(this);
+				this.scrollContainer.addEventListener('scroll', this.scrollHandler);
+			}
+		} else {
+			// Re-render existing pages with new zoom
+			await this.reRenderExistingPages();
+		}
+	}
+
+	async reRenderExistingPages(): Promise<void> {
+		for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
+			const pageElement = this.pageElements[pageNum - 1];
+			if (pageElement) {
+				// Clear the page content and re-render
+				const canvas = pageElement.querySelector('canvas');
+				const textLayer = pageElement.querySelector('.buka-pdf-page-text-layer');
+				
+				if (canvas && textLayer) {
+					const page = await this.pdfDocument.getPage(pageNum);
+					const viewport = page.getViewport({ scale: this.zoomFactor });
+					
+					// Update canvas
+					const context = canvas.getContext('2d');
+					if (context) {
+						canvas.width = viewport.width;
+						canvas.height = viewport.height;
+						canvas.style.width = `${viewport.width}px`;
+						canvas.style.height = `${viewport.height}px`;
+						
+						const renderContext = {
+							canvasContext: context,
+							viewport: viewport
+						};
+						await page.render(renderContext).promise;
+					}
+					
+					// Update text layer
+					textLayer.innerHTML = '';
+					textLayer.style.width = `${viewport.width}px`;
+					textLayer.style.height = `${viewport.height}px`;
+					await this.renderPageTextLayer(page, textLayer as HTMLElement, viewport);
+				}
+			}
+		}
+	}
+
+	async renderSinglePage(pageNum: number): Promise<HTMLElement | null> {
+		try {
+			const page = await this.pdfDocument.getPage(pageNum);
+			const viewport = page.getViewport({ scale: this.zoomFactor });
+
+			// Create page container
+			const pageContainer = document.createElement('div');
+			pageContainer.className = 'buka-pdf-page-container';
+			pageContainer.dataset.pageNumber = pageNum.toString();
+			pageContainer.style.cssText = `
+				position: relative;
+				background: white;
+				box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+				margin-bottom: 20px;
+			`;
+
+			// Create canvas for this page
+			const canvas = document.createElement('canvas');
+			canvas.className = 'buka-pdf-page-canvas';
+			const context = canvas.getContext('2d');
+			if (!context) return null;
+
+			canvas.width = viewport.width;
+			canvas.height = viewport.height;
+			canvas.style.width = `${viewport.width}px`;
+			canvas.style.height = `${viewport.height}px`;
+
+			// Render page
+			const renderContext = {
+				canvasContext: context,
+				viewport: viewport
+			};
+			await page.render(renderContext).promise;
+
+			// Create text layer for this page
+			const textLayer = document.createElement('div');
+			textLayer.className = 'buka-pdf-page-text-layer';
+			textLayer.style.cssText = `
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: ${viewport.width}px;
+				height: ${viewport.height}px;
+				overflow: hidden;
+				opacity: 0.2;
+				line-height: 1.0;
+			`;
+
+			await this.renderPageTextLayer(page, textLayer, viewport);
+
+			pageContainer.appendChild(canvas);
+			pageContainer.appendChild(textLayer);
+
+			return pageContainer;
+		} catch (error) {
+			console.warn(`Failed to render page ${pageNum}:`, error);
+			return null;
+		}
+	}
+
+	async renderPageTextLayer(page: any, textLayer: HTMLElement, viewport: any): Promise<void> {
+		try {
+			const textContent = await page.getTextContent();
+			const textItems = textContent.items;
+			const textDiv = document.createElement("div");
+			textDiv.style.cssText = `
+				position: absolute;
+				color: transparent;
+				font-family: sans-serif;
+				white-space: pre;
+			`;
+
+			textItems.forEach((item: any, index: number) => {
+				const tx = (window as any).pdfjsLib.Util.transform(
+					viewport.transform,
+					item.transform
+				);
+				const fontSize = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]);
+
+				const span = document.createElement("span");
+				span.style.cssText = `
+					position: absolute;
+					left: ${tx[4]}px;
+					top: ${tx[5] - fontSize}px;
+					font-size: ${fontSize}px;
+					transform: scaleX(${tx[2] / fontSize});
+				`;
+				span.textContent = item.str;
+				span.dataset.textIndex = `${index}`;
+
+				textDiv.appendChild(span);
+			});
+
+			textLayer.appendChild(textDiv);
+		} catch (error) {
+			console.warn("Text layer rendering failed:", error);
+		}
+	}
+
+	handleScroll(): void {
+		if (!this.scrollContainer) return;
+
+		const scrollTop = this.scrollContainer.scrollTop;
+		const containerHeight = this.scrollContainer.clientHeight;
+		
+		// Find which page is currently most visible
+		let currentVisiblePage = 1;
+		let maxVisibleArea = 0;
+
+		this.pageElements.forEach((pageElement, index) => {
+			const pageRect = pageElement.getBoundingClientRect();
+			const containerRect = this.scrollContainer!.getBoundingClientRect();
+			
+			const visibleTop = Math.max(pageRect.top, containerRect.top);
+			const visibleBottom = Math.min(pageRect.bottom, containerRect.bottom);
+			const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+			
+			if (visibleHeight > maxVisibleArea) {
+				maxVisibleArea = visibleHeight;
+				currentVisiblePage = index + 1;
+			}
+		});
+
+		if (currentVisiblePage !== this.currentPage) {
+			this.currentPage = currentVisiblePage;
+			this.emit(EVENTS.PAGE_CHANGED, {
+				page: this.currentPage,
+				totalPages: this.totalPages
+			});
+		}
+	}
+
 	async render(): Promise<void> {
-		if (!this.currentPageObject || !this.canvas || !this.context) return;
-
-		const viewport = this.currentPageObject.getViewport({ scale: this.zoomFactor });
-
-		this.canvas.width = viewport.width;
-		this.canvas.height = viewport.height;
-		this.canvas.style.width = `${viewport.width}px`;
-		this.canvas.style.height = `${viewport.height}px`;
-
-		this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-		const renderContext = {
-			canvasContext: this.context,
-			viewport: viewport
-		};
-
-		await this.currentPageObject.render(renderContext).promise;
-
-		await this.renderTextLayer(viewport);
+		// Only re-render if zoom changed, otherwise keep existing pages
+		if (this.zoomFactor !== this.lastRenderedZoom) {
+			await this.renderAllPages();
+			this.lastRenderedZoom = this.zoomFactor;
+		}
 	}
 
 	async renderTextLayer(viewport: any): Promise<void> {
@@ -188,13 +409,21 @@ export class PDFRenderer extends BaseRenderer {
 	override async goto(page: number): Promise<boolean> {
 		if (page === this.currentPage) return true;
 
-		if (page >= 1 && page <= this.totalPages) {
-			await this.loadPage(page);
-			this.emit(EVENTS.PAGE_CHANGED, {
-				page: this.currentPage,
-				totalPages: this.totalPages
-			});
-			return true;
+		if (page >= 1 && page <= this.totalPages && this.scrollContainer) {
+			// Scroll to the specific page
+			const pageElement = this.pageElements[page - 1];
+			if (pageElement) {
+				pageElement.scrollIntoView({ 
+					behavior: 'smooth', 
+					block: 'start' 
+				});
+				this.currentPage = page;
+				this.emit(EVENTS.PAGE_CHANGED, {
+					page: this.currentPage,
+					totalPages: this.totalPages
+				});
+				return true;
+			}
 		}
 		return false;
 	}
@@ -214,31 +443,40 @@ export class PDFRenderer extends BaseRenderer {
 		}
 
 		this.searchResults = [];
+		this.clearSearchHighlights();
+		
 		const searchRegex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
 
 		for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
 			try {
 				const page = await this.pdfDocument.getPage(pageNum);
 				const textContent = await page.getTextContent();
-				const pageText = textContent.items.map((item: any) => item.str).join(" ");
-
-				let match: RegExpExecArray | null;
-				while ((match = searchRegex.exec(pageText)) !== null) {
-					this.searchResults.push({
-						match: "",
-						page: pageNum,
-						text: match[0],
-						index: match.index,
-						length: match[0].length
-					});
-				}
+				
+				// Search through individual text items for more precise highlighting
+				textContent.items.forEach((item: any, itemIndex: number) => {
+					let match: RegExpExecArray | null;
+					const text = item.str;
+					const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+					
+					while ((match = regex.exec(text)) !== null) {
+						this.searchResults.push({
+							match: match[0],
+							page: pageNum,
+							text: match[0],
+							index: match.index,
+							length: match[0].length,
+							itemIndex: itemIndex,
+							textItem: item
+						});
+					}
+				});
 			} catch (error) {
 				console.warn(`Search failed on page ${pageNum}:`, error);
 			}
 		}
 
 		this.currentSearchIndex = 0;
-		this.highlightSearchResults();
+		await this.highlightSearchResults(query);
 
 		this.emit(EVENTS.SEARCH_RESULT, {
 			query,
@@ -247,44 +485,85 @@ export class PDFRenderer extends BaseRenderer {
 		});
 
 		if (this.searchResults.length > 0) {
-			await this.goto(this.searchResults[0]?.page || 0);
+			await this.goto(this.searchResults[0]?.page || 1);
 		}
 
 		return this.searchResults;
 	}
 
-	highlightSearchResults(): void {
+	async highlightSearchResults(query: string): Promise<void> {
 		this.clearSearchHighlights();
 
-		if (this.searchResults.length === 0) return;
+		if (this.searchResults.length === 0 || !query) return;
 
-		const currentPageResults = this.searchResults.filter(
-			(result) => result.page === this.currentPage
-		);
+		// Highlight in all pages
+		for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
+			const pageResults = this.searchResults.filter(result => result.page === pageNum);
+			if (pageResults.length > 0) {
+				await this.highlightPageSearchResults(pageNum, pageResults, query);
+			}
+		}
+	}
 
-		currentPageResults.forEach((result, index) => {
-			const highlight = document.createElement("div");
-			highlight.className = "buka-search-highlight";
-			highlight.style.cssText = `
-        position: absolute;
-        background: rgba(255, 255, 0, 0.3);
-        border: 1px solid rgba(255, 165, 0, 0.8);
-        pointer-events: none;
-        z-index: 10;
-      `;
+	async highlightPageSearchResults(pageNum: number, results: SearchResult[], query: string): Promise<void> {
+		const pageElement = this.pageElements[pageNum - 1];
+		if (!pageElement) return;
 
-			highlight.style.left = "10px";
-			highlight.style.top = `${20 + index * 30}px`;
-			highlight.style.width = "100px";
-			highlight.style.height = "20px";
+		const textLayer = pageElement.querySelector('.buka-pdf-page-text-layer');
+		if (!textLayer) return;
 
-			this.textLayer?.appendChild(highlight);
+		// Find all text spans in this page's text layer
+		const textSpans = textLayer.querySelectorAll('span[data-text-index]');
+		
+		results.forEach((result: any) => {
+			if (result.textItem && result.itemIndex !== undefined) {
+				// Find the corresponding span element
+				const span = textLayer.querySelector(`span[data-text-index="${result.itemIndex}"]`) as HTMLElement;
+				if (span && span.textContent) {
+					// Create highlight overlay
+					const highlight = document.createElement("div");
+					highlight.className = "buka-search-highlight";
+					highlight.style.cssText = `
+						position: absolute;
+						background: rgba(255, 255, 0, 0.4);
+						border: 1px solid rgba(255, 165, 0, 0.8);
+						pointer-events: none;
+						z-index: 15;
+						border-radius: 2px;
+					`;
+
+					// Copy span's position and size
+					const spanStyle = window.getComputedStyle(span);
+					highlight.style.left = spanStyle.left;
+					highlight.style.top = spanStyle.top;
+					highlight.style.fontSize = spanStyle.fontSize;
+					highlight.style.transform = spanStyle.transform;
+					
+					// Calculate highlight width based on matched text
+					const canvas = document.createElement('canvas');
+					const ctx = canvas.getContext('2d');
+					if (ctx) {
+						ctx.font = spanStyle.fontSize + ' ' + spanStyle.fontFamily;
+						const textWidth = ctx.measureText(result.match).width;
+						highlight.style.width = `${textWidth}px`;
+					} else {
+						// Fallback: estimate width
+						highlight.style.width = `${result.match.length * 0.6}em`;
+					}
+					highlight.style.height = spanStyle.fontSize;
+
+					textLayer.appendChild(highlight);
+				}
+			}
 		});
 	}
 
 	clearSearchHighlights(): void {
-		const highlights = this.textLayer?.querySelectorAll(".buka-search-highlight");
-		highlights?.forEach((highlight) => highlight.remove());
+		// Clear highlights from all pages
+		this.pageElements.forEach(pageElement => {
+			const highlights = pageElement.querySelectorAll(".buka-search-highlight");
+			highlights.forEach((highlight) => highlight.remove());
+		});
 	}
 
 	async getDocumentTitle(): Promise<string> {
@@ -355,17 +634,47 @@ export class PDFRenderer extends BaseRenderer {
 		this.textLayer?.appendChild(annotationElement);
 	}
 
-	override destroy(): void {
-		super.destroy();
-
+	async cleanup(): Promise<void> {
+		// Clear search highlights
+		this.clearSearchHighlights();
+		
+		// Clear document content
+		if (this.documentWrapper) {
+			this.documentWrapper.innerHTML = '';
+		}
+		
+		// Clear page elements array
+		this.pageElements = [];
+		
+		// Remove scroll listener
+		if (this.scrollContainer && this.scrollHandler) {
+			this.scrollContainer.removeEventListener('scroll', this.scrollHandler);
+			this.scrollHandler = null;
+		}
+		
+		// Destroy previous PDF document
 		if (this.pdfDocument) {
-			this.pdfDocument.destroy();
+			try {
+				this.pdfDocument.destroy();
+			} catch (error) {
+				console.warn('Error destroying PDF document:', error);
+			}
 		}
 
+		// Reset state
 		this.searchResults = [];
 		this.currentSearchIndex = 0;
 		this.pdfDocument = null;
 		this.currentPageObject = null;
+		this.currentPage = 1;
+		this.totalPages = 1;
+	}
+
+	override destroy(): void {
+		super.destroy();
+		
+		// Use the cleanup method
+		this.cleanup();
 	}
 }
 
