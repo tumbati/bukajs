@@ -1,0 +1,130 @@
+{
+	"name": "@tumbati/bukajs",
+	"version": "0.0.1",
+	"description": "Universal document viewer library supporting PDF, DOCX, Images, and XLSX files",
+	"type": "module",
+	"main": "dist/index.js",
+	"module": "dist/index.esm.js",
+	"types": "dist/types/index.d.ts",
+	"files": [
+		"dist",
+		"src",
+		"README.md",
+		"LICENSE"
+	],
+	"scripts": {
+		"build": "rollup -c",
+		"dev": "rollup -c -w",
+		"test": "vitest",
+		"test:coverage": "vitest --coverage",
+		"test:ui": "vitest --ui",
+		"lint": "eslint src tests --ext .js,.ts",
+		"lint:fix": "eslint src tests --ext .js,.ts --fix",
+		"format": "prettier --write \"src/**/*.{js,ts}\" \"tests/**/*.{js,ts}\" \"*.{js,ts,json,md}\"",
+		"format:check": "prettier --check \"src/**/*.{js,ts}\" \"tests/**/*.{js,ts}\" \"*.{js,ts,json,md}\"",
+		"typecheck": "tsc --noEmit",
+		"quality": "npm run lint && npm run format:check && npm run typecheck",
+		"prepare": "npm run build",
+		"prepublishOnly": "npm run test && npm run quality && npm run build"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/index.esm.js",
+			"require": "./dist/index.js"
+		},
+		"./renderers/pdf": {
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/renderers/pdf.esm.js",
+			"require": "./dist/renderers/pdf.js"
+		},
+		"./renderers/docx": {
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/renderers/docx.esm.js",
+			"require": "./dist/renderers/docx.js"
+		},
+		"./renderers/image": {
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/renderers/image.esm.js",
+			"require": "./dist/renderers/image.js"
+		},
+		"./renderers/xlsx": {
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/renderers/xlsx.esm.js",
+			"require": "./dist/renderers/xlsx.js"
+		},
+		"./renderers/presentation": {
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/renderers/presentation.esm.js",
+			"require": "./dist/renderers/presentation.js"
+		},
+		"./styles": "./dist/styles.css"
+	},
+	"keywords": [
+		"document",
+		"viewer",
+		"pdf",
+		"docx",
+		"xlsx",
+		"image",
+		"universal",
+		"framework-agnostic",
+		"annotations",
+		"search",
+		"zoom",
+		"viewer-library"
+	],
+	"author": "Tumbati",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/tumbati/bukajs.git"
+	},
+	"homepage": "https://github.com/tumbati/bukajs#readme",
+	"bugs": {
+		"url": "https://github.com/tumbati/bukajs/issues"
+	},
+	"peerDependencies": {
+		"pdfjs-dist": "^3.11.174"
+	},
+	"peerDependenciesMeta": {
+		"pdfjs-dist": {
+			"optional": true
+		},
+		"mammoth": {
+			"optional": true
+		},
+		"xlsx": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@rollup/plugin-commonjs": "^25.0.0",
+		"@rollup/plugin-node-resolve": "^15.0.0",
+		"@rollup/plugin-terser": "^0.4.0",
+		"@types/node": "^20.0.0",
+		"@typescript-eslint/eslint-plugin": "^6.0.0",
+		"@typescript-eslint/parser": "^6.0.0",
+		"@vitest/ui": "^0.34.7",
+		"eslint": "^8.44.0",
+		"eslint-config-prettier": "^9.1.2",
+		"eslint-plugin-prettier": "^5.5.4",
+		"jsdom": "^22.1.0",
+		"prettier": "^3.6.2",
+		"rollup": "^3.26.0",
+		"rollup-plugin-postcss": "^4.0.2",
+		"typescript": "^5.0.0",
+		"vitest": "^0.34.0"
+	},
+	"optionalDependencies": {
+		"localforage": "^1.10.0",
+		"mammoth": "^1.6.0",
+		"xlsx": "^0.18.5"
+	},
+	"engines": {
+		"node": ">=16.0.0"
+	},
+	"publishConfig": {
+		"access": "public"
+	}
+}

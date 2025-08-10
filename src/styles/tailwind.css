@@ -1,0 +1,230 @@
+/* BukaJS Tailwind CSS Integration */
+
+/* Import Tailwind base, components, and utilities when using Tailwind */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* BukaJS Tailwind Component Classes */
+@layer components {
+  /* Viewer Base */
+  .buka-viewer-tw {
+    @apply flex flex-col h-full w-full relative overflow-hidden bg-white dark:bg-gray-900 text-gray-900 dark:text-white;
+  }
+
+  /* Toolbar */
+  .buka-toolbar-tw {
+    @apply flex items-center gap-4 p-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0 min-h-12 z-40;
+  }
+
+  .buka-toolbar-section-tw {
+    @apply flex items-center gap-2 px-2;
+  }
+
+  .buka-toolbar-section-tw:not(:last-child) {
+    @apply border-r border-gray-300 dark:border-gray-600 pr-4;
+  }
+
+  /* Buttons */
+  .buka-btn-tw {
+    @apply inline-flex items-center justify-center gap-1 px-2 py-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm cursor-pointer rounded transition-all duration-200 select-none whitespace-nowrap min-h-8 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .buka-btn-primary-tw {
+    @apply bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:border-blue-700 dark:bg-blue-500 dark:border-blue-500 dark:hover:bg-blue-600;
+  }
+
+  .buka-btn-secondary-tw {
+    @apply bg-gray-600 border-gray-600 text-white hover:bg-gray-700 hover:border-gray-700;
+  }
+
+  .buka-btn-icon-tw {
+    @apply p-1 w-8 h-8;
+  }
+
+  /* Layout */
+  .buka-main-tw {
+    @apply flex flex-1 overflow-hidden relative;
+  }
+
+  .buka-sidebar-tw {
+    @apply w-60 min-w-52 max-w-96 border-r border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 overflow-y-auto flex-shrink-0 z-30 transition-all duration-200;
+  }
+
+  .buka-sidebar-collapsed-tw {
+    @apply w-0 min-w-0 border-r-0;
+  }
+
+  .buka-content-tw {
+    @apply flex-1 relative overflow-auto bg-white dark:bg-gray-900;
+  }
+
+  .buka-document-container-tw {
+    @apply relative w-full h-full flex justify-center items-start p-6;
+  }
+
+  /* Navigation */
+  .buka-nav-controls-tw {
+    @apply flex items-center gap-1;
+  }
+
+  .buka-page-info-tw {
+    @apply flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400;
+  }
+
+  .buka-page-input-tw {
+    @apply w-16 px-1 py-1 border border-gray-300 dark:border-gray-600 rounded text-center text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  }
+
+  /* Zoom */
+  .buka-zoom-controls-tw {
+    @apply flex items-center gap-1;
+  }
+
+  .buka-zoom-level-tw {
+    @apply text-sm text-gray-600 dark:text-gray-400 min-w-12 text-center;
+  }
+
+  /* Search */
+  .buka-search-controls-tw {
+    @apply flex items-center gap-1 relative;
+  }
+
+  .buka-search-input-tw {
+    @apply px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white min-w-52 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  }
+
+  .buka-search-results-tw {
+    @apply absolute top-full left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 border-t-0 rounded-b shadow-lg max-h-48 overflow-y-auto z-50;
+  }
+
+  .buka-search-result-item-tw {
+    @apply p-2 border-b border-gray-100 dark:border-gray-700 cursor-pointer text-sm hover:bg-gray-50 dark:hover:bg-gray-700 last:border-b-0;
+  }
+
+  /* Thumbnails */
+  .buka-thumbnails-tw {
+    @apply p-2;
+  }
+
+  .buka-thumbnail-tw {
+    @apply w-full mb-2 border-2 border-transparent rounded cursor-pointer transition-all duration-200 relative overflow-hidden hover:border-gray-400 dark:hover:border-gray-500;
+  }
+
+  .buka-thumbnail-active-tw {
+    @apply border-blue-500 shadow-sm;
+  }
+
+  .buka-thumbnail-image-tw {
+    @apply w-full h-auto block;
+  }
+
+  .buka-thumbnail-label-tw {
+    @apply absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent text-white p-1 text-xs text-center;
+  }
+
+  /* Loading & Error States */
+  .buka-loading-tw {
+    @apply flex items-center justify-center p-8 text-gray-600 dark:text-gray-400 text-sm;
+  }
+
+  .buka-spinner-tw {
+    @apply w-5 h-5 border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 rounded-full animate-spin mr-2;
+  }
+
+  .buka-error-tw {
+    @apply flex flex-col items-center justify-center p-8 text-red-600 dark:text-red-400 text-center;
+  }
+
+  .buka-error-icon-tw {
+    @apply text-2xl mb-2;
+  }
+
+  .buka-error-message-tw {
+    @apply text-sm mb-2;
+  }
+
+  .buka-error-details-tw {
+    @apply text-xs text-gray-500 dark:text-gray-400 font-mono bg-gray-100 dark:bg-gray-800 p-2 rounded max-w-full overflow-x-auto;
+  }
+
+  /* Annotations */
+  .buka-annotation-tw {
+    @apply absolute cursor-pointer transition-all duration-200 hover:z-20 hover:scale-105;
+  }
+
+  .buka-annotation-highlight-tw {
+    @apply bg-yellow-300/30 border border-orange-400/60;
+  }
+
+  .buka-annotation-note-tw {
+    @apply w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center text-xs text-gray-900 shadow-sm;
+  }
+
+  /* Search Highlights */
+  .buka-search-highlight-tw {
+    @apply absolute bg-yellow-400/40 border border-orange-500/80 pointer-events-none z-10 transition-all duration-200;
+  }
+
+  .buka-search-highlight-current-tw {
+    @apply bg-red-300/30 border-red-500/80;
+  }
+
+  /* Mobile Responsive */
+  .buka-sidebar-mobile-tw {
+    @apply md:relative md:translate-x-0 absolute left-0 top-0 h-full z-50 -translate-x-full;
+  }
+
+  .buka-sidebar-mobile-open-tw {
+    @apply translate-x-0;
+  }
+}
+
+/* Utility classes for document-specific styling */
+@layer utilities {
+  /* Document containers */
+  .buka-doc-pdf {
+    @apply bg-gray-100 dark:bg-gray-800 shadow-lg;
+  }
+
+  .buka-doc-image {
+    @apply max-w-full max-h-full object-contain;
+  }
+
+  .buka-doc-docx {
+    @apply bg-white dark:bg-gray-900 shadow-lg p-6 max-w-4xl mx-auto;
+  }
+
+  .buka-doc-xlsx {
+    @apply bg-white dark:bg-gray-900 shadow-lg overflow-auto;
+  }
+
+  /* Animation utilities */
+  .buka-fade-in {
+    animation: buka-fade-in 0.2s ease-in-out;
+  }
+
+  .buka-slide-in-right {
+    animation: buka-slide-in-right 0.3s ease-out;
+  }
+
+  .buka-slide-in-left {
+    animation: buka-slide-in-left 0.3s ease-out;
+  }
+}
+
+/* Custom animations */
+@keyframes buka-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes buka-slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes buka-slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}

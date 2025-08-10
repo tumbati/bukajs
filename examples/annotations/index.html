@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BukaJS Annotations Demo</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui, sans-serif;
+            background: #f0f2f5;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .demo-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr 250px;
+            gap: 20px;
+            height: 80vh;
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .panel-header {
+            background: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+            font-weight: 600;
+        }
+        
+        .panel-content {
+            padding: 15px;
+            height: calc(100% - 60px);
+            overflow-y: auto;
+        }
+        
+        .viewer-panel {
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        #buka-viewer {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .annotation-tools {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .tool-btn {
+            padding: 10px;
+            border: 2px solid #dee2e6;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        
+        .tool-btn:hover {
+            border-color: #007bff;
+            background: #f8f9ff;
+        }
+        
+        .tool-btn.active {
+            border-color: #007bff;
+            background: #007bff;
+            color: white;
+        }
+        
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .color-option {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            border: 2px solid #ddd;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+        
+        .color-option.selected {
+            border-color: #333;
+            border-width: 3px;
+        }
+        
+        .annotation-item {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid;
+        }
+        
+        .annotation-item.highlight {
+            border-left-color: #ffc107;
+        }
+        
+        .annotation-item.note {
+            border-left-color: #28a745;
+        }
+        
+        .annotation-item.drawing {
+            border-left-color: #dc3545;
+        }
+        
+        .annotation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .annotation-content {
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .annotation-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .action-btn {
+            background: none;
+            border: 1px solid #ddd;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        
+        .action-btn:hover {
+            background: #f8f9fa;
+        }
+        
+        .load-section {
+            margin-bottom: 20px;
+        }
+        
+        .file-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        
+        .load-btn {
+            width: 100%;
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        
+        .sample-btn {
+            width: 100%;
+            padding: 8px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .export-section {
+            margin-top: 20px;
+            border-top: 1px solid #dee2e6;
+            padding-top: 15px;
+        }
+        
+        .export-btn {
+            width: 100%;
+            padding: 8px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 5px;
+        }
+        
+        .annotation-mode-info {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            color: #1565c0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>BukaJS Advanced Annotations Demo</h1>
+        
+        <div class="demo-layout">
+            <!-- Left Panel - Document Controls -->
+            <div class="panel">
+                <div class="panel-header">Document Controls</div>
+                <div class="panel-content">
+                    <div class="load-section">
+                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.png,.jpg,.jpeg">
+                        <button class="load-btn" onclick="loadFile()">Load File</button>
+                        <button class="sample-btn" onclick="loadSample()">Load Sample PDF</button>
+                    </div>
+                    
+                    <div class="annotation-mode-info">
+                        Select a tool below, then click on the document to add annotations
+                    </div>
+                    
+                    <div class="annotation-tools">
+                        <div class="tool-btn" id="highlightTool" onclick="setAnnotationMode('highlight')">
+                            🖍️ Highlight
+                        </div>
+                        <div class="tool-btn" id="noteTool" onclick="setAnnotationMode('note')">
+                            📝 Note
+                        </div>
+                        <div class="tool-btn" id="drawingTool" onclick="setAnnotationMode('drawing')">
+                            ✏️ Draw
+                        </div>
+                        <div class="tool-btn" id="selectTool" onclick="setAnnotationMode('select')">
+                            👆 Select
+                        </div>
+                    </div>
+                    
+                    <div class="color-palette" id="colorPalette">
+                        <div class="color-option selected" data-color="#ffc107" style="background: #ffc107"></div>
+                        <div class="color-option" data-color="#28a745" style="background: #28a745"></div>
+                        <div class="color-option" data-color="#dc3545" style="background: #dc3545"></div>
+                        <div class="color-option" data-color="#007bff" style="background: #007bff"></div>
+                        <div class="color-option" data-color="#6f42c1" style="background: #6f42c1"></div>
+                        <div class="color-option" data-color="#fd7e14" style="background: #fd7e14"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Center Panel - Viewer -->
+            <div class="panel viewer-panel">
+                <div id="buka-viewer"></div>
+            </div>
+            
+            <!-- Right Panel - Annotations List -->
+            <div class="panel">
+                <div class="panel-header">
+                    Annotations (<span id="annotationCount">0</span>)
+                </div>
+                <div class="panel-content">
+                    <div id="annotationsList"></div>
+                    
+                    <div class="export-section">
+                        <button class="export-btn" onclick="exportAnnotations()">Export JSON</button>
+                        <button class="export-btn" onclick="importAnnotations()">Import JSON</button>
+                        <button class="export-btn" onclick="clearAllAnnotations()">Clear All</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BukaJS Core -->
+    <script type="module" src="../../src/core/index.js"></script>
+    <script type="module" src="../../src/renderers/pdf.js"></script>
+    
+    <script type="module">
+        import { BukaViewer, EVENTS } from '../../src/core/index.js';
+        import '../../src/renderers/pdf.js';
+
+        let viewer;
+        let currentAnnotationMode = 'select';
+        let currentColor = '#ffc107';
+        let annotations = [];
+        let isDrawing = false;
+        let drawingPath = [];
+
+        // Initialize viewer
+        function initViewer() {
+            const container = document.getElementById('buka-viewer');
+            viewer = new BukaViewer(container, {
+                enableAnnotations: true,
+                enableSearch: true,
+                enableThumbnails: true,
+                enableToolbar: true
+            });
+            
+            // Set up event listeners
+            viewer.on(EVENTS.DOCUMENT_LOADED, (data) => {
+                console.log('Document loaded:', data);
+                setupAnnotationLayer();
+            });
+            
+            viewer.on(EVENTS.ANNOTATION_ADDED, (annotation) => {
+                annotations.push(annotation);
+                updateAnnotationsList();
+            });
+            
+            viewer.on(EVENTS.ERROR, (error) => {
+                console.error('Viewer error:', error);
+                alert(`Error: ${error.message}`);
+            });
+        }
+
+        // Set up annotation interaction layer
+        function setupAnnotationLayer() {
+            const documentContainer = document.querySelector('#buka-viewer .buka-content');
+            if (!documentContainer) return;
+
+            // Remove existing event listeners
+            documentContainer.removeEventListener('click', handleDocumentClick);
+            documentContainer.removeEventListener('mousedown', handleMouseDown);
+            documentContainer.removeEventListener('mousemove', handleMouseMove);
+            documentContainer.removeEventListener('mouseup', handleMouseUp);
+
+            // Add event listeners
+            documentContainer.addEventListener('click', handleDocumentClick);
+            documentContainer.addEventListener('mousedown', handleMouseDown);
+            documentContainer.addEventListener('mousemove', handleMouseMove);
+            documentContainer.addEventListener('mouseup', handleMouseUp);
+        }
+
+        // Handle document clicks for annotations
+        function handleDocumentClick(event) {
+            if (currentAnnotationMode === 'select') return;
+
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = (event.clientX - rect.left) / rect.width;
+            const y = (event.clientY - rect.top) / rect.height;
+
+            addAnnotationAt(x, y);
+        }
+
+        // Mouse event handlers for drawing
+        function handleMouseDown(event) {
+            if (currentAnnotationMode !== 'drawing') return;
+
+            isDrawing = true;
+            drawingPath = [];
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = (event.clientX - rect.left) / rect.width;
+            const y = (event.clientY - rect.top) / rect.height;
+            drawingPath.push({ x, y });
+        }
+
+        function handleMouseMove(event) {
+            if (!isDrawing || currentAnnotationMode !== 'drawing') return;
+
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = (event.clientX - rect.left) / rect.width;
+            const y = (event.clientY - rect.top) / rect.height;
+            drawingPath.push({ x, y });
+
+            // Draw preview line
+            drawPreviewPath();
+        }
+
+        function handleMouseUp(event) {
+            if (!isDrawing || currentAnnotationMode !== 'drawing') return;
+
+            isDrawing = false;
+            if (drawingPath.length > 1) {
+                addDrawingAnnotation(drawingPath);
+            }
+            drawingPath = [];
+        }
+
+        // Add annotation at specific coordinates
+        function addAnnotationAt(x, y) {
+            let annotation;
+
+            switch (currentAnnotationMode) {
+                case 'highlight':
+                    annotation = {
+                        type: 'highlight',
+                        content: 'Highlighted text',
+                        color: currentColor,
+                        position: {
+                            x: Math.max(0, x - 0.05),
+                            y: Math.max(0, y - 0.01),
+                            width: 0.1,
+                            height: 0.02
+                        }
+                    };
+                    break;
+
+                case 'note':
+                    const noteContent = prompt('Enter note content:');
+                    if (!noteContent) return;
+                    
+                    annotation = {
+                        type: 'note',
+                        content: noteContent,
+                        color: currentColor,
+                        position: {
+                            x: Math.max(0, x - 0.01),
+                            y: Math.max(0, y - 0.01),
+                            width: 0.02,
+                            height: 0.02
+                        }
+                    };
+                    break;
+            }
+
+            if (annotation && viewer) {
+                viewer.addAnnotation(annotation);
+            }
+        }
+
+        // Add drawing annotation
+        function addDrawingAnnotation(path) {
+            const annotation = {
+                type: 'drawing',
+                content: 'Hand-drawn annotation',
+                color: currentColor,
+                path: path,
+                position: {
+                    x: Math.min(...path.map(p => p.x)),
+                    y: Math.min(...path.map(p => p.y)),
+                    width: Math.max(...path.map(p => p.x)) - Math.min(...path.map(p => p.x)),
+                    height: Math.max(...path.map(p => p.y)) - Math.min(...path.map(p => p.y))
+                }
+            };
+
+            if (viewer) {
+                viewer.addAnnotation(annotation);
+            }
+        }
+
+        // Draw preview path while drawing
+        function drawPreviewPath() {
+            // This would typically be implemented with canvas or SVG
+            // For now, we'll skip the preview implementation
+        }
+
+        // Set annotation mode
+        window.setAnnotationMode = function(mode) {
+            currentAnnotationMode = mode;
+            
+            // Update UI
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(mode + 'Tool').classList.add('active');
+
+            // Update cursor
+            const viewer = document.getElementById('buka-viewer');
+            viewer.style.cursor = mode === 'select' ? 'default' : 'crosshair';
+        };
+
+        // Set annotation color
+        function setAnnotationColor(color) {
+            currentColor = color;
+            document.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('selected'));
+            document.querySelector(`[data-color="${color}"]`).classList.add('selected');
+        }
+
+        // Update annotations list
+        function updateAnnotationsList() {
+            const list = document.getElementById('annotationsList');
+            const count = document.getElementById('annotationCount');
+            
+            count.textContent = annotations.length;
+            list.innerHTML = '';
+
+            annotations.forEach((annotation, index) => {
+                const item = document.createElement('div');
+                item.className = `annotation-item ${annotation.type}`;
+                
+                const typeIcon = {
+                    highlight: '🖍️',
+                    note: '📝',
+                    drawing: '✏️'
+                }[annotation.type] || '📌';
+
+                item.innerHTML = `
+                    <div class="annotation-header">
+                        <span>${typeIcon} ${annotation.type}</span>
+                        <span>Page ${annotation.page || viewer.getCurrentPage()}</span>
+                    </div>
+                    <div class="annotation-content">${annotation.content}</div>
+                    <div class="annotation-actions">
+                        <button class="action-btn" onclick="goToAnnotation(${index})">Go to</button>
+                        <button class="action-btn" onclick="deleteAnnotation('${annotation.id}')">Delete</button>
+                    </div>
+                `;
+                
+                list.appendChild(item);
+            });
+        }
+
+        // Go to annotation
+        window.goToAnnotation = function(index) {
+            const annotation = annotations[index];
+            if (annotation.page && viewer) {
+                viewer.currentRenderer.goto(annotation.page);
+            }
+        };
+
+        // Delete annotation
+        window.deleteAnnotation = function(id) {
+            if (viewer) {
+                viewer.currentRenderer.removeAnnotation(id);
+                annotations = annotations.filter(ann => ann.id !== id);
+                updateAnnotationsList();
+            }
+        };
+
+        // Load file
+        window.loadFile = function() {
+            const input = document.getElementById('fileInput');
+            const file = input.files[0];
+            if (file && viewer) {
+                viewer.load(file);
+            }
+        };
+
+        // Load sample
+        window.loadSample = function() {
+            if (viewer) {
+                viewer.load('https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf');
+            }
+        };
+
+        // Export annotations
+        window.exportAnnotations = function() {
+            if (viewer) {
+                const allAnnotations = viewer.exportAnnotations();
+                const dataStr = JSON.stringify(allAnnotations, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'annotations.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        };
+
+        // Import annotations
+        window.importAnnotations = function() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const importedAnnotations = JSON.parse(event.target.result);
+                            if (viewer && Array.isArray(importedAnnotations)) {
+                                viewer.currentRenderer.importAnnotations(importedAnnotations);
+                                annotations = [...importedAnnotations];
+                                updateAnnotationsList();
+                            }
+                        } catch (error) {
+                            alert('Error importing annotations: ' + error.message);
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
+        };
+
+        // Clear all annotations
+        window.clearAllAnnotations = function() {
+            if (confirm('Are you sure you want to clear all annotations?')) {
+                annotations = [];
+                updateAnnotationsList();
+                
+                if (viewer?.currentRenderer) {
+                    // Clear annotations from renderer
+                    viewer.currentRenderer.annotations.clear();
+                    
+                    // Re-render to remove visual annotations
+                    viewer.currentRenderer.render();
+                }
+            }
+        };
+
+        // Set up color palette
+        document.querySelectorAll('.color-option').forEach(option => {
+            option.addEventListener('click', () => {
+                setAnnotationColor(option.dataset.color);
+            });
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initViewer();
+            setAnnotationMode('select');
+        });
+    </script>
+</body>
+</html>

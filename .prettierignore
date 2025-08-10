@@ -1,0 +1,13 @@
+dist/
+node_modules/
+coverage/
+*.min.js
+*.config.js
+package-lock.json
+yarn.lock
+*.md
+LICENSE
+.git/
+.gitignore
+.eslintrc.js
+rollup.config.js
