@@ -1,6 +1,6 @@
 # @tumbati/bukajs
 
-Universal document viewer library supporting PDF, DOCX, Images, and XLSX files with framework-agnostic design.
+Universal document viewer library supporting PDF, DOCX, Images, and XLSX files.
 
 [![npm version](https://badge.fury.io/js/%40tumbati%2Fbukajs.svg)](https://badge.fury.io/js/%40tumbati%2Fbukajs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
