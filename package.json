@@ -1,6 +1,6 @@
 {
 	"name": "@tumbati/bukajs",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "Universal document viewer library supporting PDF, DOCX, Images, and XLSX files",
 	"type": "module",
 	"main": "dist/index.js",
