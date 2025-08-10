@@ -89,7 +89,6 @@
     <button onclick="loadPDF()">Load Sample PDF</button>
     <div id="viewer"></div>
 
-    <!-- BukaJS Core -->
     <script src="../../dist/index.js"></script>
     <script src="../../dist/renderers/pdf.js"></script>
 
@@ -136,6 +135,9 @@
           console.error("Failed to load PDF:", error);
         }
       }
+
+      // Make functions globally available
+      window.loadPDF = loadPDF;
 
       document.addEventListener("DOMContentLoaded", initViewer);
     </script>

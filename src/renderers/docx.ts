@@ -1,11 +1,19 @@
-import { BaseRenderer, EVENTS, RendererFactory, SUPPORTED_FORMATS } from "../core/index.js";
+import { BaseRenderer, EVENTS, RendererFactory, SUPPORTED_FORMATS } from "../core";
+import type { SearchResult } from "../types";
 
 /**
  * DOCX Renderer using Mammoth.js
  * Handles DOCX documents by converting to HTML for display
  */
 export class DocxRenderer extends BaseRenderer {
-	constructor(container, options = {}) {
+	public mammothLib: any;
+	public documentHtml: string;
+	public documentContainer: HTMLElement;
+	public searchableText: string;
+	public searchResults: SearchResult[];
+	public currentSearchIndex: number;
+
+	constructor(container: HTMLElement, options = {}) {
 		super(container, options);
 
 		this.mammothLib = null;
@@ -21,7 +29,7 @@ export class DocxRenderer extends BaseRenderer {
 		this.setupDocumentContainer();
 	}
 
-	setupDocumentContainer() {
+	setupDocumentContainer(): void {
 		this.documentContainer = document.createElement("div");
 		this.documentContainer.className = "buka-docx-container";
 		this.documentContainer.style.cssText = `
@@ -50,7 +58,7 @@ export class DocxRenderer extends BaseRenderer {
 		this.container.appendChild(this.documentContainer);
 	}
 
-	async load(source) {
+	async load(source: string | File | Blob): Promise<void> {
 		try {
 			this.mammothLib = await this.loadMammoth();
 
@@ -116,7 +124,7 @@ export class DocxRenderer extends BaseRenderer {
 		}
 	}
 
-	async loadMammoth() {
+	async loadMammoth(): Promise<any> {
 		if (typeof mammoth !== "undefined") {
 			return mammoth;
 		}
@@ -148,7 +156,7 @@ export class DocxRenderer extends BaseRenderer {
 		return document;
 	}
 
-	async render() {
+	async render(): Promise<void> {
 		if (!this.documentHtml) return;
 
 		const styledHtml = this.applyDocumentStyles(this.documentHtml);
@@ -328,7 +336,7 @@ export class DocxRenderer extends BaseRenderer {
 		});
 	}
 
-	async zoom(factor) {
+	async zoom(factor: number): Promise<void> {
 		this.zoom = Math.max(0.5, Math.min(3.0, factor));
 
 		const percentage = Math.round(this.zoom * 100);
@@ -337,7 +345,7 @@ export class DocxRenderer extends BaseRenderer {
 		this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoom });
 	}
 
-	async goto(page) {
+	async goto(page: number): Promise<boolean> {
 		if (page === 1) {
 			this.contentWrapper.scrollTop = 0;
 			this.emit(EVENTS.PAGE_CHANGED, { page: 1, totalPages: 1 });
@@ -346,7 +354,7 @@ export class DocxRenderer extends BaseRenderer {
 		return false;
 	}
 
-	async search(query) {
+	async search(query: string): Promise<SearchResult[]> {
 		if (!query.trim()) {
 			this.searchResults = [];
 			this.currentSearchIndex = 0;

@@ -1,11 +1,21 @@
-import { BaseRenderer, EVENTS, RendererFactory, SUPPORTED_FORMATS } from "../core/index.js";
+import { BaseRenderer, EVENTS, RendererFactory, SUPPORTED_FORMATS } from "../core";
+import type { SearchResult } from "../types";
 
 /**
  * Image Renderer for PNG, JPEG, SVG
  * Handles image documents with zoom, pan, and fit-to-screen functionality
  */
 export class ImageRenderer extends BaseRenderer {
-	constructor(container, options = {}) {
+	public imageElement: HTMLImageElement | null;
+	public imageWrapper: HTMLElement | null;
+	public originalDimensions: { width: number; height: number };
+	public containerDimensions: { width: number; height: number };
+	public panState: { x: number; y: number };
+	public isDragging: boolean;
+	public dragStart: { x: number; y: number };
+	public fitMode: "fit-width" | "fit-height" | "fit-page" | "original";
+
+	constructor(container: HTMLElement, options = {}) {
 		super(container, options);
 
 		this.imageElement = null;
@@ -24,7 +34,7 @@ export class ImageRenderer extends BaseRenderer {
 		this.bindEvents();
 	}
 
-	setupImageContainer() {
+	setupImageContainer(): void {
 		this.imageWrapper = document.createElement("div");
 		this.imageWrapper.className = "buka-image-wrapper";
 		this.imageWrapper.style.cssText = `
@@ -61,7 +71,7 @@ export class ImageRenderer extends BaseRenderer {
 		this.container.appendChild(this.imageWrapper);
 	}
 
-	bindEvents() {
+	bindEvents(): void {
 		this.imageWrapper.addEventListener("mousedown", this.handleMouseDown.bind(this));
 		document.addEventListener("mousemove", this.handleMouseMove.bind(this));
 		document.addEventListener("mouseup", this.handleMouseUp.bind(this));
@@ -91,7 +101,7 @@ export class ImageRenderer extends BaseRenderer {
 		});
 	}
 
-	async load(source) {
+	async load(source: string | File | Blob): Promise<void> {
 		try {
 			let imageUrl;
 
@@ -149,7 +159,7 @@ export class ImageRenderer extends BaseRenderer {
 		};
 	}
 
-	async render() {
+	async render(): Promise<void> {
 		this.updateImageTransform();
 	}
 
@@ -163,7 +173,7 @@ export class ImageRenderer extends BaseRenderer {
     `;
 	}
 
-	async zoom(factor) {
+	async zoom(factor: number): Promise<void> {
 		const oldZoom = this.zoom;
 		this.zoom = Math.max(0.1, Math.min(10.0, factor));
 
@@ -178,7 +188,7 @@ export class ImageRenderer extends BaseRenderer {
 		this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoom });
 	}
 
-	async goto(page) {
+	async goto(page: number): Promise<boolean> {
 		if (page === 1) {
 			this.emit(EVENTS.PAGE_CHANGED, { page: 1, totalPages: 1 });
 			return true;
@@ -186,7 +196,7 @@ export class ImageRenderer extends BaseRenderer {
 		return false;
 	}
 
-	async search(query) {
+	async search(query: string): Promise<SearchResult[]> {
 		this.emit(EVENTS.SEARCH_RESULT, {
 			query,
 			results: [],

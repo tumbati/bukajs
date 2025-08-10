@@ -28,7 +28,7 @@ export default defineConfig({
 	},
 	resolve: {
 		alias: {
-			"@tumbati/bukajs": "./src/core/index.js"
+			"@tumbati/bukajs": "./src/core/index.ts"
 		}
 	}
 });

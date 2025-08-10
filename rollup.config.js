@@ -1,5 +1,6 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
+import typescript from '@rollup/plugin-typescript';
 import terser from '@rollup/plugin-terser';
 import postcss from 'rollup-plugin-postcss';
 import { copyFileSync, mkdirSync } from 'fs';
@@ -18,6 +19,11 @@ const copyTypesPlugin = () => ({
 const baseConfig = {
   external: ['pdfjs-dist', 'mammoth', 'xlsx', 'localforage'],
   plugins: [
+    typescript({
+      tsconfig: './tsconfig.json',
+      declaration: false,
+      declarationMap: false
+    }),
     resolve({
       browser: true,
       preferBuiltins: false
@@ -36,7 +42,7 @@ export default [
   // Core library - ESM
   {
     ...baseConfig,
-    input: 'src/index.js',
+    input: 'src/index.ts',
     output: {
       file: 'dist/index.esm.js',
       format: 'esm',
@@ -48,7 +54,7 @@ export default [
   // Core library - UMD
   {
     ...baseConfig,
-    input: 'src/index.js',
+    input: 'src/index.ts',
     output: {
       file: 'dist/index.js',
       format: 'umd',
@@ -67,7 +73,7 @@ export default [
   // Individual renderer builds - ESM
   {
     ...baseConfig,
-    input: 'src/renderers/pdf.js',
+    input: 'src/renderers/pdf.ts',
     output: {
       file: 'dist/renderers/pdf.esm.js',
       format: 'esm',
@@ -77,7 +83,7 @@ export default [
   
   {
     ...baseConfig,
-    input: 'src/renderers/image.js',
+    input: 'src/renderers/image.ts',
     output: {
       file: 'dist/renderers/image.esm.js',
       format: 'esm',
@@ -87,7 +93,7 @@ export default [
   
   {
     ...baseConfig,
-    input: 'src/renderers/docx.js',
+    input: 'src/renderers/docx.ts',
     output: {
       file: 'dist/renderers/docx.esm.js',
       format: 'esm',
@@ -97,7 +103,7 @@ export default [
   
   {
     ...baseConfig,
-    input: 'src/renderers/xlsx.js',
+    input: 'src/renderers/xlsx.ts',
     output: {
       file: 'dist/renderers/xlsx.esm.js',
       format: 'esm',
@@ -107,7 +113,7 @@ export default [
   
   {
     ...baseConfig,
-    input: 'src/renderers/presentation.js',
+    input: 'src/renderers/presentation.ts',
     output: {
       file: 'dist/renderers/presentation.esm.js',
       format: 'esm',
@@ -118,7 +124,7 @@ export default [
   // Individual renderer builds - UMD
   {
     ...baseConfig,
-    input: 'src/renderers/pdf.js',
+    input: 'src/renderers/pdf.ts',
     output: {
       file: 'dist/renderers/pdf.js',
       format: 'umd',
@@ -133,7 +139,7 @@ export default [
 
   {
     ...baseConfig,
-    input: 'src/renderers/image.js',
+    input: 'src/renderers/image.ts',
     output: {
       file: 'dist/renderers/image.js',
       format: 'umd',
@@ -147,7 +153,7 @@ export default [
 
   {
     ...baseConfig,
-    input: 'src/renderers/docx.js',
+    input: 'src/renderers/docx.ts',
     output: {
       file: 'dist/renderers/docx.js',
       format: 'umd',
@@ -162,7 +168,7 @@ export default [
 
   {
     ...baseConfig,
-    input: 'src/renderers/xlsx.js',
+    input: 'src/renderers/xlsx.ts',
     output: {
       file: 'dist/renderers/xlsx.js',
       format: 'umd',
@@ -177,7 +183,7 @@ export default [
 
   {
     ...baseConfig,
-    input: 'src/renderers/presentation.js',
+    input: 'src/renderers/presentation.ts',
     output: {
       file: 'dist/renderers/presentation.js',
       format: 'umd',
@@ -191,8 +197,13 @@ export default [
 
   // Styles build
   {
-    input: 'src/styles/index.js',
+    input: 'src/styles/index.ts',
     plugins: [
+      typescript({
+        tsconfig: './tsconfig.json',
+        declaration: false,
+        declarationMap: false
+      }),
       postcss({
         extract: 'styles.css',
         minimize: production

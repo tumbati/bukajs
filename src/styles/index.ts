@@ -8,12 +8,17 @@ export const THEMES = {
 	DEFAULT: "default",
 	DARK: "dark",
 	TAILWIND: "tailwind"
-};
+} as const;
+
+type Theme = typeof THEMES[keyof typeof THEMES];
 
 /**
  * CSS injection utility
  */
 class StyleManager {
+	private injectedStyles: Set<string>;
+	private currentTheme: Theme;
+
 	constructor() {
 		this.injectedStyles = new Set();
 		this.currentTheme = THEMES.DEFAULT;
@@ -21,10 +26,8 @@ class StyleManager {
 
 	/**
 	 * Inject CSS styles into the document head
-	 * @param {string} css - CSS content to inject
-	 * @param {string} id - Unique identifier for the style element
 	 */
-	injectCSS(css, id = "buka-styles") {
+	injectCSS(css: string, id: string = "buka-styles"): void {
 		if (this.injectedStyles.has(id)) {
 			return;
 		}
@@ -38,9 +41,8 @@ class StyleManager {
 
 	/**
 	 * Remove injected styles
-	 * @param {string} id - Style element ID to remove
 	 */
-	removeCSS(id) {
+	removeCSS(id: string): void {
 		const element = document.getElementById(id);
 		if (element) {
 			element.remove();
@@ -50,10 +52,8 @@ class StyleManager {
 
 	/**
 	 * Set theme on document
-	 * @param {string} theme - Theme name
-	 * @param {HTMLElement} element - Element to apply theme to (defaults to document.documentElement)
 	 */
-	setTheme(theme, element = document.documentElement) {
+	setTheme(theme: Theme, element: HTMLElement = document.documentElement): void {
 		Object.values(THEMES).forEach((t) => {
 			element.removeAttribute(`data-buka-theme-${t}`);
 		});
@@ -68,14 +68,14 @@ class StyleManager {
 	/**
 	 * Get current theme
 	 */
-	getCurrentTheme() {
+	getCurrentTheme(): Theme {
 		return this.currentTheme;
 	}
 
 	/**
 	 * Auto-inject core styles
 	 */
-	async loadCoreStyles() {
+	async loadCoreStyles(): Promise<void> {
 		try {
 			const coreCSS = await this.loadStylesheet("core.css");
 			this.injectCSS(coreCSS, "buka-core-styles");
@@ -88,7 +88,7 @@ class StyleManager {
 	/**
 	 * Load Tailwind styles
 	 */
-	async loadTailwindStyles() {
+	async loadTailwindStyles(): Promise<void> {
 		try {
 			const tailwindCSS = await this.loadStylesheet("tailwind.css");
 			this.injectCSS(tailwindCSS, "buka-tailwind-styles");
@@ -99,16 +99,15 @@ class StyleManager {
 
 	/**
 	 * Load stylesheet content (placeholder for actual implementation)
-	 * @param {string} filename - Stylesheet filename
 	 */
-	async loadStylesheet(filename) {
+	async loadStylesheet(filename: string): Promise<string> {
 		return "";
 	}
 
 	/**
 	 * Inject minimal default styles as fallback
 	 */
-	injectDefaultStyles() {
+	injectDefaultStyles(): void {
 		const defaultCSS = `
       .buka-viewer {
         font-family: system-ui, sans-serif;
@@ -212,6 +211,51 @@ class StyleManager {
         color: #d32f2f;
         text-align: center;
       }
+
+      .buka-thumbnail {
+        width: 120px;
+        margin-bottom: 10px;
+        background: white;
+        border: 2px solid transparent;
+        border-radius: 4px;
+        cursor: pointer;
+        overflow: hidden;
+        transition: all 0.2s;
+        position: relative;
+      }
+
+      .buka-thumbnail:hover {
+        border-color: #007bff;
+      }
+
+      .buka-thumbnail.active {
+        border-color: #007bff !important;
+        background-color: #f0f8ff;
+      }
+
+      .buka-thumbnail-placeholder {
+        padding: 20px;
+        text-align: center;
+        color: #666;
+        font-size: 12px;
+        background: #f5f5f5;
+        height: 160px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .buka-thumbnail-label {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(transparent, rgba(0,0,0,0.7));
+        color: white;
+        padding: 4px;
+        font-size: 12px;
+        text-align: center;
+      }
     `;
 
 		this.injectCSS(defaultCSS, "buka-fallback-styles");
@@ -220,14 +264,16 @@ class StyleManager {
 
 export const styleManager = new StyleManager();
 
+interface StyleOptions {
+	theme?: Theme;
+	autoInject?: boolean;
+	container?: HTMLElement;
+}
+
 /**
  * Initialize BukaJS styles
- * @param {Object} options - Style configuration options
- * @param {string} options.theme - Theme to use ('default', 'dark', 'tailwind')
- * @param {boolean} options.autoInject - Whether to auto-inject core styles
- * @param {HTMLElement} options.container - Container element for scoped styling
  */
-export async function initStyles(options = {}) {
+export async function initStyles(options: StyleOptions = {}): Promise<StyleManager> {
 	const { theme = THEMES.DEFAULT, autoInject = true, container } = options;
 
 	if (autoInject) {
@@ -315,9 +361,8 @@ export const CSS_CLASSES = {
 
 /**
  * Get CSS classes for current theme
- * @param {string} theme - Theme name
  */
-export function getThemeClasses(theme = THEMES.DEFAULT) {
+export function getThemeClasses(theme: Theme = THEMES.DEFAULT): Record<string, string> {
 	switch (theme) {
 		case THEMES.TAILWIND:
 			return CSS_CLASSES.TAILWIND;
@@ -328,13 +373,15 @@ export function getThemeClasses(theme = THEMES.DEFAULT) {
 	}
 }
 
+interface ThemeClasses {
+	tailwind?: string;
+	dark?: string;
+}
+
 /**
  * Utility to conditionally apply classes based on theme
- * @param {string} baseClass - Base CSS class
- * @param {string} theme - Current theme
- * @param {Object} themeClasses - Theme-specific class mappings
  */
-export function themeClass(baseClass, theme = THEMES.DEFAULT, themeClasses = {}) {
+export function themeClass(baseClass: string, theme: Theme = THEMES.DEFAULT, themeClasses: ThemeClasses = {}): string {
 	if (theme === THEMES.TAILWIND && themeClasses.tailwind) {
 		return themeClasses.tailwind;
 	}

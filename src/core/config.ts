@@ -8,7 +8,7 @@ export const SUPPORTED_FORMATS = {
 	CSV: "text/csv",
 	PPTX: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 	PPT: "application/vnd.ms-powerpoint"
-};
+} as const;
 
 export const EVENTS = {
 	DOCUMENT_LOADED: "document:loaded",
@@ -18,7 +18,7 @@ export const EVENTS = {
 	ANNOTATION_ADDED: "annotation:added",
 	ANNOTATION_REMOVED: "annotation:removed",
 	ERROR: "error"
-};
+} as const;
 
 export const DEFAULT_STYLES = `
 .buka-viewer {

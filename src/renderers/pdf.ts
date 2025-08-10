@@ -1,11 +1,20 @@
-import { BaseRenderer, EVENTS, RendererFactory, SUPPORTED_FORMATS } from "../core/index.js";
+import { BaseRenderer, EVENTS, RendererFactory, SUPPORTED_FORMATS } from "../core";
+import type { Annotation, SearchResult } from "../types";
 
 /**
  * PDF Renderer using PDF.js
  * Handles PDF documents with canvas rendering and text layer
  */
 export class PDFRenderer extends BaseRenderer {
-	constructor(container, options = {}) {
+	public pdfDocument: any;
+	public currentPageObject: any;
+	public canvas: HTMLCanvasElement | null;
+	public context: CanvasRenderingContext2D | null;
+	public textLayer: HTMLElement | null;
+	public searchResults: SearchResult[];
+	public currentSearchIndex: number;
+
+	constructor(container: HTMLElement, options = {}) {
 		super(container, options);
 		this.pdfDocument = null;
 		this.currentPageObject = null;
@@ -14,11 +23,11 @@ export class PDFRenderer extends BaseRenderer {
 		this.textLayer = null;
 		this.searchResults = [];
 		this.currentSearchIndex = 0;
-		this.zoom = 1.0;
+		this.zoomFactor = 1.0;
 		this.setupCanvas();
 	}
 
-	setupCanvas() {
+	setupCanvas(): void {
 		this.canvas = document.createElement("canvas");
 		this.canvas.className = "buka-pdf-canvas";
 		this.context = this.canvas.getContext("2d");
@@ -26,24 +35,24 @@ export class PDFRenderer extends BaseRenderer {
 		this.textLayer = document.createElement("div");
 		this.textLayer.className = "buka-pdf-text-layer";
 		this.textLayer.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      overflow: hidden;
-      opacity: 0.2;
-      line-height: 1.0;
-    `;
+			position: absolute;
+			top: 0;
+			left: 0;
+			overflow: hidden;
+			opacity: 0.2;
+			line-height: 1.0;
+		`;
 
 		this.container.style.position = "relative";
 		this.container.appendChild(this.canvas);
 		this.container.appendChild(this.textLayer);
 	}
 
-	async load(source) {
+	async load(source: string | File | Blob): Promise<void> {
 		try {
 			const pdfjsLib = await this.loadPDFJS();
 
-			let typedArray;
+			let typedArray: Uint8Array;
 
 			if (typeof source === "string") {
 				const response = await fetch(source);
@@ -71,13 +80,13 @@ export class PDFRenderer extends BaseRenderer {
 			});
 		} catch (error) {
 			console.error("PDF loading failed:", error);
-			throw new Error(`Failed to load PDF: ${error.message}`);
+			throw new Error(`Failed to load PDF: ${error}`);
 		}
 	}
 
-	async loadPDFJS() {
-		if (typeof pdfjsLib !== "undefined") {
-			return pdfjsLib;
+	async loadPDFJS(): Promise<any> {
+		if (typeof (window as any).pdfjsLib !== "undefined") {
+			return (window as any).pdfjsLib;
 		}
 
 		const script = document.createElement("script");
@@ -85,12 +94,12 @@ export class PDFRenderer extends BaseRenderer {
 		document.head.appendChild(script);
 
 		return new Promise((resolve, reject) => {
-			script.onload = () => resolve(window.pdfjsLib);
+			script.onload = () => resolve((window as any).pdfjsLib);
 			script.onerror = () => reject(new Error("Failed to load PDF.js"));
 		});
 	}
 
-	async loadPage(pageNumber) {
+	async loadPage(pageNumber: number): Promise<void> {
 		if (!this.pdfDocument || pageNumber < 1 || pageNumber > this.totalPages) {
 			return;
 		}
@@ -101,10 +110,10 @@ export class PDFRenderer extends BaseRenderer {
 		await this.render();
 	}
 
-	async render() {
-		if (!this.currentPageObject) return;
+	async render(): Promise<void> {
+		if (!this.currentPageObject || !this.canvas || !this.context) return;
 
-		const viewport = this.currentPageObject.getViewport({ scale: this.zoom });
+		const viewport = this.currentPageObject.getViewport({ scale: this.zoomFactor });
 
 		this.canvas.width = viewport.width;
 		this.canvas.height = viewport.height;
@@ -123,7 +132,9 @@ export class PDFRenderer extends BaseRenderer {
 		await this.renderTextLayer(viewport);
 	}
 
-	async renderTextLayer(viewport) {
+	async renderTextLayer(viewport: any): Promise<void> {
+		if (!this.textLayer) return;
+
 		this.textLayer.innerHTML = "";
 		this.textLayer.style.width = `${viewport.width}px`;
 		this.textLayer.style.height = `${viewport.height}px`;
@@ -134,26 +145,29 @@ export class PDFRenderer extends BaseRenderer {
 			const textItems = textContent.items;
 			const textDiv = document.createElement("div");
 			textDiv.style.cssText = `
-        position: absolute;
-        color: transparent;
-        font-family: sans-serif;
-        white-space: pre;
-      `;
+				position: absolute;
+				color: transparent;
+				font-family: sans-serif;
+				white-space: pre;
+			`;
 
-			textItems.forEach((item, index) => {
-				const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+			textItems.forEach((item: any, index: number) => {
+				const tx = (window as any).pdfjsLib.Util.transform(
+					viewport.transform,
+					item.transform
+				);
 				const fontSize = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]);
 
 				const span = document.createElement("span");
 				span.style.cssText = `
-          position: absolute;
-          left: ${tx[4]}px;
-          top: ${tx[5] - fontSize}px;
-          font-size: ${fontSize}px;
-          transform: scaleX(${tx[2] / fontSize});
-        `;
+					position: absolute;
+					left: ${tx[4]}px;
+					top: ${tx[5] - fontSize}px;
+					font-size: ${fontSize}px;
+					transform: scaleX(${tx[2] / fontSize});
+				`;
 				span.textContent = item.str;
-				span.dataset.textIndex = index;
+				span.dataset.textIndex = `${index}`;
 
 				textDiv.appendChild(span);
 			});
@@ -164,14 +178,14 @@ export class PDFRenderer extends BaseRenderer {
 		}
 	}
 
-	updateZoomDisplay() {
+	updateZoomDisplay(): void {
 		const zoomLevelEl = this.container.querySelector("#zoomLevel");
-		if (this.currentRenderer && zoomLevelEl) {
-			zoomLevelEl.textContent = `${Math.round(this.currentRenderer.zoom * 100)}%`;
-		}
+		// if (this.currentRenderer && zoomLevelEl) {
+		// 	zoomLevelEl.textContent = `${Math.round(this.currentRenderer.zoom * 100)}%`;
+		// }
 	}
 
-	async goto(page) {
+	override async goto(page: number): Promise<boolean> {
 		if (page === this.currentPage) return true;
 
 		if (page >= 1 && page <= this.totalPages) {
@@ -185,13 +199,13 @@ export class PDFRenderer extends BaseRenderer {
 		return false;
 	}
 
-	async zoom(factor) {
-		this.zoom = Math.max(0.1, Math.min(5.0, factor));
+	override async setZoom(factor: number): Promise<void> {
+		this.zoomFactor = Math.max(0.1, Math.min(5.0, factor));
 		await this.render();
-		this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoom });
+		this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoomFactor });
 	}
 
-	async search(query) {
+	async search(query: string): Promise<SearchResult[]> {
 		if (!this.pdfDocument || !query.trim()) {
 			this.searchResults = [];
 			this.currentSearchIndex = 0;
@@ -206,11 +220,12 @@ export class PDFRenderer extends BaseRenderer {
 			try {
 				const page = await this.pdfDocument.getPage(pageNum);
 				const textContent = await page.getTextContent();
-				const pageText = textContent.items.map((item) => item.str).join(" ");
+				const pageText = textContent.items.map((item: any) => item.str).join(" ");
 
-				let match;
+				let match: RegExpExecArray | null;
 				while ((match = searchRegex.exec(pageText)) !== null) {
 					this.searchResults.push({
+						match: "",
 						page: pageNum,
 						text: match[0],
 						index: match.index,
@@ -232,13 +247,13 @@ export class PDFRenderer extends BaseRenderer {
 		});
 
 		if (this.searchResults.length > 0) {
-			await this.goto(this.searchResults[0].page);
+			await this.goto(this.searchResults[0]?.page || 0);
 		}
 
 		return this.searchResults;
 	}
 
-	highlightSearchResults() {
+	highlightSearchResults(): void {
 		this.clearSearchHighlights();
 
 		if (this.searchResults.length === 0) return;
@@ -263,16 +278,16 @@ export class PDFRenderer extends BaseRenderer {
 			highlight.style.width = "100px";
 			highlight.style.height = "20px";
 
-			this.textLayer.appendChild(highlight);
+			this.textLayer?.appendChild(highlight);
 		});
 	}
 
-	clearSearchHighlights() {
-		const highlights = this.textLayer.querySelectorAll(".buka-search-highlight");
-		highlights.forEach((highlight) => highlight.remove());
+	clearSearchHighlights(): void {
+		const highlights = this.textLayer?.querySelectorAll(".buka-search-highlight");
+		highlights?.forEach((highlight) => highlight.remove());
 	}
 
-	async getDocumentTitle() {
+	async getDocumentTitle(): Promise<string> {
 		if (!this.pdfDocument) return "Untitled";
 
 		try {
@@ -283,13 +298,13 @@ export class PDFRenderer extends BaseRenderer {
 		}
 	}
 
-	addAnnotation(annotation) {
+	override addAnnotation(annotation: Omit<Annotation, "id" | "page" | "timestamp">) {
 		const id = super.addAnnotation(annotation);
 		this.renderAnnotation(this.annotations.get(id));
 		return id;
 	}
 
-	renderAnnotation(annotation) {
+	renderAnnotation(annotation: any): void {
 		if (annotation.page !== this.currentPage) return;
 
 		const annotationElement = document.createElement("div");
@@ -326,7 +341,7 @@ export class PDFRenderer extends BaseRenderer {
 		}
 
 		if (annotation.position) {
-			const viewport = this.currentPageObject.getViewport({ scale: this.zoom });
+			const viewport = this.currentPageObject.getViewport({ scale: this.zoomFactor });
 			annotationElement.style.left = `${viewport.width * annotation.position.x}px`;
 			annotationElement.style.top = `${viewport.height * annotation.position.y}px`;
 			annotationElement.style.width = `${
@@ -337,10 +352,10 @@ export class PDFRenderer extends BaseRenderer {
 			}px`;
 		}
 
-		this.textLayer.appendChild(annotationElement);
+		this.textLayer?.appendChild(annotationElement);
 	}
 
-	destroy() {
+	override destroy(): void {
 		super.destroy();
 
 		if (this.pdfDocument) {

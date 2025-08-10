@@ -1,11 +1,30 @@
-import { BaseRenderer, EVENTS, RendererFactory, SUPPORTED_FORMATS } from "../core/index.js";
+import { BaseRenderer, EVENTS, RendererFactory, SUPPORTED_FORMATS } from "../core";
+import type { SearchResult, ViewerOptions } from "../types";
 
 /**
  * Presentation Renderer for PPTX files
  * Handles PowerPoint presentations by converting to HTML/images for display
  */
 export class PresentationRenderer extends BaseRenderer {
-	constructor(container, options = {}) {
+	public presentationLib: any;
+	public slides: any[];
+	public currentSlideIndex: number;
+	public slideContainer: HTMLElement | null;
+	public slideNavigation: HTMLElement | null;
+	public thumbnailsContainer: HTMLElement | null;
+	public searchableText: string;
+	public searchResults: SearchResult[];
+	public currentSearchIndex: number;
+	public canShowThumbnails: boolean;
+	public autoFitSlide: boolean;
+	public mainContainer: HTMLDivElement | null;
+	public slideDisplay: HTMLDivElement | null;
+	public slideContent: HTMLDivElement | null;
+	public thumbnailsPanel: HTMLDivElement | null;
+	public slideCounter: HTMLDivElement | null;
+	public keyboardHandler?: (e: KeyboardEvent) => void;
+
+	constructor(container: HTMLElement, options: ViewerOptions = {}) {
 		super(container, options);
 
 		this.presentationLib = null;
@@ -17,97 +36,102 @@ export class PresentationRenderer extends BaseRenderer {
 		this.searchableText = "";
 		this.searchResults = [];
 		this.currentSearchIndex = 0;
+		this.mainContainer = null;
+		this.slideDisplay = null;
+		this.slideContent = null;
+		this.thumbnailsPanel = null;
+		this.slideCounter = null;
 
-		this.showThumbnails = options.showThumbnails !== false;
+		this.canShowThumbnails = options.showThumbnails !== false;
 		this.autoFitSlide = options.autoFitSlide !== false;
 
 		this.setupPresentationContainer();
 	}
 
-	setupPresentationContainer() {
+	setupPresentationContainer(): void {
 		this.mainContainer = document.createElement("div");
 		this.mainContainer.className = "buka-presentation-container";
 		this.mainContainer.style.cssText = `
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-      height: 100%;
-      background-color: #1a1a1a;
-      color: white;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    `;
+			display: flex;
+			flex-direction: column;
+			width: 100%;
+			height: 100%;
+			background-color: #1a1a1a;
+			color: white;
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+		`;
 
 		this.slideContainer = document.createElement("div");
 		this.slideContainer.className = "buka-slide-container";
 		this.slideContainer.style.cssText = `
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      position: relative;
-      overflow: hidden;
-    `;
+			flex: 1;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 20px;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			position: relative;
+			overflow: hidden;
+		`;
 
 		this.slideDisplay = document.createElement("div");
 		this.slideDisplay.className = "buka-slide-display";
 		this.slideDisplay.style.cssText = `
-      background-color: white;
-      border-radius: 8px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-      max-width: 100%;
-      max-height: 100%;
-      overflow: hidden;
-      position: relative;
-      aspect-ratio: 16/9;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    `;
+			background-color: white;
+			border-radius: 8px;
+			box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+			max-width: 100%;
+			max-height: 100%;
+			overflow: hidden;
+			position: relative;
+			aspect-ratio: 16/9;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		`;
 
 		this.slideContent = document.createElement("div");
 		this.slideContent.className = "buka-slide-content";
 		this.slideContent.style.cssText = `
-      width: 100%;
-      height: 100%;
-      padding: 40px;
-      box-sizing: border-box;
-      color: #333;
-      font-size: 18px;
-      line-height: 1.5;
-      overflow: auto;
-    `;
+			width: 100%;
+			height: 100%;
+			padding: 40px;
+			box-sizing: border-box;
+			color: #333;
+			font-size: 18px;
+			line-height: 1.5;
+			overflow: auto;
+		`;
 
 		this.slideNavigation = document.createElement("div");
 		this.slideNavigation.className = "buka-slide-navigation";
 		this.slideNavigation.style.cssText = `
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 15px 20px;
-      background-color: rgba(0,0,0,0.8);
-      backdrop-filter: blur(10px);
-    `;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 15px 20px;
+			background-color: rgba(0,0,0,0.8);
+			backdrop-filter: blur(10px);
+		`;
 
-		if (this.showThumbnails) {
+		if (this.canShowThumbnails) {
 			this.thumbnailsPanel = document.createElement("div");
 			this.thumbnailsPanel.className = "buka-thumbnails-panel";
 			this.thumbnailsPanel.style.cssText = `
-        width: 200px;
-        height: 100%;
-        background-color: rgba(0,0,0,0.9);
-        backdrop-filter: blur(10px);
-        border-right: 1px solid rgba(255,255,255,0.1);
-        overflow-y: auto;
-        padding: 10px;
-        position: absolute;
-        left: 0;
-        top: 0;
-        transform: translateX(-100%);
-        transition: transform 0.3s ease;
-        z-index: 10;
-      `;
+				width: 200px;
+				height: 100%;
+				background-color: rgba(0,0,0,0.9);
+				backdrop-filter: blur(10px);
+				border-right: 1px solid rgba(255,255,255,0.1);
+				overflow-y: auto;
+				padding: 10px;
+				position: absolute;
+				left: 0;
+				top: 0;
+				transform: translateX(-100%);
+				transition: transform 0.3s ease;
+				z-index: 10;
+			`;
 
 			this.thumbnailsContainer = document.createElement("div");
 			this.thumbnailsContainer.className = "buka-thumbnails-list";
@@ -130,19 +154,19 @@ export class PresentationRenderer extends BaseRenderer {
 		this.setupKeyboardNavigation();
 	}
 
-	setupNavigationControls() {
+	setupNavigationControls(): void {
 		const prevButton = document.createElement("button");
 		prevButton.innerHTML = "← Previous";
 		prevButton.className = "buka-nav-btn";
 		prevButton.style.cssText = `
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: white;
-      padding: 8px 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.2s;
-    `;
+			background: rgba(255,255,255,0.1);
+			border: 1px solid rgba(255,255,255,0.2);
+			color: white;
+			padding: 8px 16px;
+			border-radius: 6px;
+			cursor: pointer;
+			transition: all 0.2s;
+		`;
 		prevButton.addEventListener("click", () => this.previousSlide());
 		prevButton.addEventListener("mouseenter", () => {
 			prevButton.style.background = "rgba(255,255,255,0.2)";
@@ -154,12 +178,12 @@ export class PresentationRenderer extends BaseRenderer {
 		this.slideCounter = document.createElement("div");
 		this.slideCounter.className = "buka-slide-counter";
 		this.slideCounter.style.cssText = `
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: white;
-      font-size: 14px;
-    `;
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			color: white;
+			font-size: 14px;
+		`;
 
 		const nextButton = document.createElement("button");
 		nextButton.innerHTML = "Next →";
@@ -180,15 +204,19 @@ export class PresentationRenderer extends BaseRenderer {
 			thumbnailsToggle.style.cssText = prevButton.style.cssText;
 			thumbnailsToggle.addEventListener("click", () => this.toggleThumbnails());
 
-			this.slideNavigation.appendChild(thumbnailsToggle);
+			if (this.slideNavigation) {
+				this.slideNavigation.appendChild(thumbnailsToggle);
+			}
 		}
 
-		this.slideNavigation.appendChild(prevButton);
-		this.slideNavigation.appendChild(this.slideCounter);
-		this.slideNavigation.appendChild(nextButton);
+		if (this.slideNavigation) {
+			this.slideNavigation.appendChild(prevButton);
+			this.slideNavigation.appendChild(this.slideCounter);
+			this.slideNavigation.appendChild(nextButton);
+		}
 	}
 
-	setupKeyboardNavigation() {
+	setupKeyboardNavigation(): void {
 		this.keyboardHandler = (event) => {
 			switch (event.key) {
 				case "ArrowLeft":
@@ -224,7 +252,7 @@ export class PresentationRenderer extends BaseRenderer {
 		document.addEventListener("keydown", this.keyboardHandler);
 	}
 
-	async load(source) {
+	async load(source: string | File | Blob): Promise<void> {
 		try {
 			this.presentationLib = await this.loadPresentationLibrary();
 
@@ -248,7 +276,7 @@ export class PresentationRenderer extends BaseRenderer {
 			this.currentPage = 1;
 			this.currentSlideIndex = 0;
 
-			if (this.showThumbnails) {
+			if (this.canShowThumbnails) {
 				this.setupThumbnails();
 			}
 
@@ -262,19 +290,19 @@ export class PresentationRenderer extends BaseRenderer {
 			});
 		} catch (error) {
 			console.error("Presentation loading failed:", error);
-			throw new Error(`Failed to load presentation: ${error.message}`);
+			throw new Error(`Failed to load presentation: ${error}`);
 		}
 	}
 
-	async loadPresentationLibrary() {
+	async loadPresentationLibrary(): Promise<any> {
 		console.log("Using mock presentation library for demonstration");
 
 		return {
-			parse: (data) => this.mockParsePPTX(data)
+			parse: (data: any) => this.mockParsePPTX(data)
 		};
 	}
 
-	async parsePresentationData(data) {
+	async parsePresentationData(data: any): Promise<void> {
 		try {
 			const parsedData = await this.presentationLib.parse(data);
 			this.slides = parsedData.slides;
@@ -285,7 +313,7 @@ export class PresentationRenderer extends BaseRenderer {
 		}
 	}
 
-	mockParsePPTX(data) {
+	mockParsePPTX(data: any) {
 		const slideCount = Math.max(1, Math.floor(data.byteLength / 10000));
 
 		const slides = [];
@@ -307,7 +335,7 @@ export class PresentationRenderer extends BaseRenderer {
 		return { slides, text: searchableText };
 	}
 
-	generateMockSlideContent(slideNumber) {
+	generateMockSlideContent(slideNumber: number): string {
 		const contents = [
 			"<h1>Welcome to the Presentation</h1><p>This is the opening slide with an introduction to our topic.</p>",
 			"<h2>Agenda</h2><ul><li>Introduction</li><li>Main Content</li><li>Key Points</li><li>Conclusion</li></ul>",
@@ -327,7 +355,7 @@ export class PresentationRenderer extends BaseRenderer {
 		);
 	}
 
-	getSlideBackground(index) {
+	getSlideBackground(index: number) {
 		const backgrounds = [
 			"linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
 			"linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
@@ -335,6 +363,7 @@ export class PresentationRenderer extends BaseRenderer {
 			"linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
 			"linear-gradient(135deg, #fa709a 0%, #fee140 100%)"
 		];
+
 		return backgrounds[index % backgrounds.length];
 	}
 
@@ -410,19 +439,21 @@ export class PresentationRenderer extends BaseRenderer {
 				thumbnail.style.boxShadow = "none";
 			});
 
-			this.thumbnailsContainer.appendChild(thumbnail);
+			this.thumbnailsContainer?.appendChild(thumbnail);
 		});
 	}
 
-	async render() {
+	async render(): Promise<void> {
 		if (!this.slides.length) return;
 
 		const currentSlide = this.slides[this.currentSlideIndex];
 		if (!currentSlide) return;
 
-		this.slideContent.innerHTML = currentSlide.content;
+		if (this.slideContent) {
+			this.slideContent.innerHTML = currentSlide.content;
+		}
 
-		if (currentSlide.background) {
+		if (currentSlide.background && this.slideContainer) {
 			this.slideContainer.style.background = currentSlide.background;
 		}
 
@@ -438,8 +469,12 @@ export class PresentationRenderer extends BaseRenderer {
 	}
 
 	fitSlideToContainer() {
+		if (!this.slideDisplay || !this.slideContainer) return;
+
 		const containerRect = this.slideContainer.getBoundingClientRect();
 		const slideRect = this.slideDisplay.getBoundingClientRect();
+
+		if (!containerRect || !slideRect) return;
 
 		const scaleX = (containerRect.width - 40) / slideRect.width;
 		const scaleY = (containerRect.height - 40) / slideRect.height;
@@ -468,12 +503,11 @@ export class PresentationRenderer extends BaseRenderer {
 
 		const thumbnails = this.thumbnailsContainer.querySelectorAll(".buka-slide-thumbnail");
 		thumbnails.forEach((thumbnail, index) => {
-			thumbnail.style.borderColor =
-				index === this.currentSlideIndex ? "#4facfe" : "transparent";
+			thumbnail.classList.add(index === this.currentSlideIndex ? "active-thumbnail" : "");
 		});
 	}
 
-	async goToSlide(slideIndex) {
+	async goToSlide(slideIndex: number): Promise<boolean> {
 		if (slideIndex >= 0 && slideIndex < this.slides.length) {
 			this.currentSlideIndex = slideIndex;
 			this.currentPage = slideIndex + 1;
@@ -490,30 +524,33 @@ export class PresentationRenderer extends BaseRenderer {
 		return false;
 	}
 
-	async nextSlide() {
+	async nextSlide(): Promise<boolean> {
 		return await this.goToSlide(this.currentSlideIndex + 1);
 	}
 
-	async previousSlide() {
+	async previousSlide(): Promise<boolean> {
 		return await this.goToSlide(this.currentSlideIndex - 1);
 	}
 
-	async goto(page) {
+	override async goto(page: number): Promise<boolean> {
 		return await this.goToSlide(page - 1);
 	}
 
-	async zoom(factor) {
-		this.zoom = Math.max(0.3, Math.min(3.0, factor));
+	override async zoom(factor: number): Promise<void> {
+		this.zoomFactor = Math.max(0.3, Math.min(3.0, factor));
 
-		const scale = this.zoom;
+		const scale = this.zoomFactor;
+
+		if (!this.slideDisplay) return;
 		this.slideDisplay.style.transform = `scale(${scale})`;
 
+		if (!this.slideContainer) return;
 		this.slideContainer.style.overflow = scale > 1 ? "auto" : "hidden";
 
 		this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoom });
 	}
 
-	async search(query) {
+	async search(query: string): Promise<SearchResult[]> {
 		if (!query.trim()) {
 			this.searchResults = [];
 			this.currentSearchIndex = 0;
@@ -546,8 +583,11 @@ export class PresentationRenderer extends BaseRenderer {
 			this.currentSearchIndex = 0;
 
 			const firstResult = this.searchResults[0];
+
+			if (!firstResult) return [];
+
 			if (firstResult.slideIndex !== this.currentSlideIndex) {
-				await this.goToSlide(firstResult.slideIndex);
+				await this.goToSlide(firstResult.slideIndex || 0);
 			}
 		}
 
@@ -560,7 +600,9 @@ export class PresentationRenderer extends BaseRenderer {
 		return this.searchResults;
 	}
 
-	highlightSearchMatches(query) {
+	highlightSearchMatches(query: string) {
+		if (!this.slideContent) return;
+
 		const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
 		const currentSlide = this.slides[this.currentSlideIndex];
 
@@ -577,7 +619,7 @@ export class PresentationRenderer extends BaseRenderer {
 		this.render();
 	}
 
-	getSearchContext(text, index, length) {
+	getSearchContext(text: string, index: number, length: number) {
 		const contextLength = 30;
 		const start = Math.max(0, index - contextLength);
 		const end = Math.min(text.length, index + length + contextLength);
@@ -610,7 +652,7 @@ export class PresentationRenderer extends BaseRenderer {
 		}
 	}
 
-	getDocumentTitle(source) {
+	getDocumentTitle(source: string | File | Blob) {
 		if (typeof source === "string") {
 			return (
 				source
@@ -634,27 +676,38 @@ export class PresentationRenderer extends BaseRenderer {
 	}
 
 	enterPresentationMode() {
-		this.mainContainer.style.position = "fixed";
-		this.mainContainer.style.top = "0";
-		this.mainContainer.style.left = "0";
-		this.mainContainer.style.width = "100vw";
-		this.mainContainer.style.height = "100vh";
-		this.mainContainer.style.zIndex = "9999";
-		this.slideNavigation.style.display = "none";
+		if (this.mainContainer) {
+			this.mainContainer.style.position = "fixed";
+			this.mainContainer.style.top = "0";
+			this.mainContainer.style.left = "0";
+			this.mainContainer.style.width = "100vw";
+			this.mainContainer.style.height = "100vh";
+			this.mainContainer.style.zIndex = "9999";
+		}
+
+		if (this.slideNavigation) {
+			this.slideNavigation.style.display = "none";
+		}
+
 		this.hideThumbnails();
 	}
 
 	exitPresentationMode() {
-		this.mainContainer.style.position = "";
-		this.mainContainer.style.top = "";
-		this.mainContainer.style.left = "";
-		this.mainContainer.style.width = "";
-		this.mainContainer.style.height = "";
-		this.mainContainer.style.zIndex = "";
-		this.slideNavigation.style.display = "flex";
+		if (this.mainContainer) {
+			this.mainContainer.style.position = "";
+			this.mainContainer.style.top = "";
+			this.mainContainer.style.left = "";
+			this.mainContainer.style.width = "";
+			this.mainContainer.style.height = "";
+			this.mainContainer.style.zIndex = "";
+		}
+
+		if (this.slideNavigation) {
+			this.slideNavigation.style.display = "flex";
+		}
 	}
 
-	destroy() {
+	override destroy() {
 		super.destroy();
 
 		if (this.keyboardHandler) {

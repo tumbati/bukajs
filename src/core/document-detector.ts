@@ -4,9 +4,9 @@ import { SUPPORTED_FORMATS } from "./config";
  * Document Type Detector
  */
 export class DocumentDetector {
-	static async detectType(source) {
+	static async detectType(source: string | File | Blob): Promise<string> {
 		if (typeof source === "string") {
-			const extension = source.split(".").pop().toLowerCase();
+			const extension = source.split(".").pop()?.toLowerCase();
 			switch (extension) {
 				case "pdf":
 					return SUPPORTED_FORMATS.PDF;
@@ -27,6 +27,8 @@ export class DocumentDetector {
 					return SUPPORTED_FORMATS.PPTX;
 				case "ppt":
 					return SUPPORTED_FORMATS.PPT;
+				default:
+					break;
 			}
 		} else if (source instanceof File || source instanceof Blob) {
 			return source.type;

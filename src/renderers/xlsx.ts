@@ -1,11 +1,27 @@
-import { BaseRenderer, EVENTS, RendererFactory, SUPPORTED_FORMATS } from "../core/index.js";
+import { BaseRenderer, EVENTS, RendererFactory, SUPPORTED_FORMATS } from "../core";
+import type { SearchResult } from "../types";
 
 /**
  * XLSX/CSV Renderer using SheetJS
  * Handles Excel files and CSV with sheet navigation and grid display
  */
 export class XlsxRenderer extends BaseRenderer {
-	constructor(container, options = {}) {
+	public xlsxLib: any;
+	public workbook: any;
+	public worksheets: any[];
+	public currentSheetIndex: number;
+	public currentSheetData: any[][];
+	public gridContainer: HTMLElement;
+	public sheetTabs: HTMLElement;
+	public searchableData: string;
+	public searchResults: SearchResult[];
+	public currentSearchIndex: number;
+	public virtualScrolling: boolean;
+	public rowHeight: number;
+	public visibleRows: number;
+	public visibleCols: number;
+
+	constructor(container: HTMLElement, options = {}) {
 		super(container, options);
 
 		this.xlsxLib = null;
@@ -31,7 +47,7 @@ export class XlsxRenderer extends BaseRenderer {
 		this.setupGridContainer();
 	}
 
-	setupGridContainer() {
+	setupGridContainer(): void {
 		this.mainContainer = document.createElement("div");
 		this.mainContainer.className = "buka-xlsx-container";
 		this.mainContainer.style.cssText = `
@@ -86,11 +102,11 @@ export class XlsxRenderer extends BaseRenderer {
 		}
 	}
 
-	setupVirtualScrolling() {
+	setupVirtualScrolling(): void {
 		this.gridContainer.addEventListener("scroll", this.handleScroll.bind(this));
 	}
 
-	async load(source) {
+	async load(source: string | File | Blob): Promise<void> {
 		try {
 			this.xlsxLib = await this.loadSheetJS();
 
@@ -146,7 +162,7 @@ export class XlsxRenderer extends BaseRenderer {
 		}
 	}
 
-	async loadSheetJS() {
+	async loadSheetJS(): Promise<any> {
 		if (typeof XLSX !== "undefined") {
 			return XLSX;
 		}
@@ -174,7 +190,7 @@ export class XlsxRenderer extends BaseRenderer {
 		}
 	}
 
-	setupSheetTabs() {
+	setupSheetTabs(): void {
 		this.sheetTabs.innerHTML = "";
 
 		this.worksheets.forEach((worksheet, index) => {
@@ -206,7 +222,7 @@ export class XlsxRenderer extends BaseRenderer {
 		});
 	}
 
-	async switchToSheet(sheetIndex) {
+	async switchToSheet(sheetIndex: number): Promise<void> {
 		if (sheetIndex >= 0 && sheetIndex < this.worksheets.length) {
 			this.currentSheetIndex = sheetIndex;
 			this.currentPage = sheetIndex + 1;
@@ -221,7 +237,7 @@ export class XlsxRenderer extends BaseRenderer {
 		}
 	}
 
-	async loadSheet(sheetIndex) {
+	async loadSheet(sheetIndex: number): Promise<void> {
 		const worksheet = this.worksheets[sheetIndex];
 		if (!worksheet) return;
 
@@ -274,13 +290,13 @@ export class XlsxRenderer extends BaseRenderer {
 		}
 	}
 
-	buildSearchableText() {
+	buildSearchableText(): void {
 		this.searchableData = this.currentSheetData
 			.map((row) => row.map((cell) => cell.value).join(" "))
 			.join("\n");
 	}
 
-	async render() {
+	async render(): Promise<void> {
 		if (!this.currentSheetData.length) {
 			this.gridTable.innerHTML =
 				'<tr><td style="padding: 20px; text-align: center; color: #666;">No data available</td></tr>';
@@ -296,7 +312,7 @@ export class XlsxRenderer extends BaseRenderer {
 		}
 	}
 
-	renderFullGrid() {
+	renderFullGrid(): void {
 		const tbody = document.createElement("tbody");
 
 		this.currentSheetData.forEach((rowData, rowIndex) => {
@@ -484,7 +500,7 @@ export class XlsxRenderer extends BaseRenderer {
 		}
 	}
 
-	async zoom(factor) {
+	async zoom(factor: number): Promise<void> {
 		this.zoom = Math.max(0.5, Math.min(2.0, factor));
 
 		const fontSize = Math.round(13 * this.zoom);
@@ -500,7 +516,7 @@ export class XlsxRenderer extends BaseRenderer {
 		this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoom });
 	}
 
-	async goto(page) {
+	async goto(page: number): Promise<boolean> {
 		const sheetIndex = page - 1;
 		if (sheetIndex >= 0 && sheetIndex < this.worksheets.length) {
 			await this.switchToSheet(sheetIndex);
@@ -509,7 +525,7 @@ export class XlsxRenderer extends BaseRenderer {
 		return false;
 	}
 
-	async search(query) {
+	async search(query: string): Promise<SearchResult[]> {
 		if (!query.trim()) {
 			this.searchResults = [];
 			this.currentSearchIndex = 0;
@@ -598,14 +614,14 @@ export class XlsxRenderer extends BaseRenderer {
 		}
 	}
 
-	nextSearchResult() {
+	nextSearchResult(): void {
 		if (this.searchResults.length > 0) {
 			this.currentSearchIndex = (this.currentSearchIndex + 1) % this.searchResults.length;
 			this.scrollToSearchResult(this.currentSearchIndex);
 		}
 	}
 
-	previousSearchResult() {
+	previousSearchResult(): void {
 		if (this.searchResults.length > 0) {
 			this.currentSearchIndex =
 				(this.currentSearchIndex - 1 + this.searchResults.length) %
@@ -614,7 +630,7 @@ export class XlsxRenderer extends BaseRenderer {
 		}
 	}
 
-	exportToCSV() {
+	exportToCSV(): string {
 		if (!this.currentSheetData.length) return "";
 
 		return this.currentSheetData
@@ -631,7 +647,7 @@ export class XlsxRenderer extends BaseRenderer {
 			.join("\n");
 	}
 
-	downloadCSV() {
+	downloadCSV(): void {
 		const csv = this.exportToCSV();
 		const blob = new Blob([csv], { type: "text/csv" });
 		const url = URL.createObjectURL(blob);
@@ -658,7 +674,7 @@ export class XlsxRenderer extends BaseRenderer {
 		return "Spreadsheet";
 	}
 
-	getSheetStats() {
+	getSheetStats(): any {
 		const worksheet = this.worksheets[this.currentSheetIndex];
 		if (!worksheet) return null;
 
@@ -691,7 +707,7 @@ export class XlsxRenderer extends BaseRenderer {
 		};
 	}
 
-	destroy() {
+	destroy(): void {
 		super.destroy();
 
 		this.workbook = null;

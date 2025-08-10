@@ -45,6 +45,7 @@ export interface ZoomChangeEvent {
 }
 
 export interface SearchResult {
+	slideTitle?: string;
 	page?: number;
 	slideIndex?: number;
 	sheet?: number;

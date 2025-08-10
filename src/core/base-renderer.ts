@@ -1,29 +1,34 @@
+import type { Annotation, EventCallback, SearchResult, ViewerOptions } from "../types";
 import { EVENTS } from "./config";
 
 /**
  * Base Document Renderer Interface
  * All specific renderers must implement these methods
  */
-export class BaseRenderer {
-	constructor(container, options = {}) {
+export abstract class BaseRenderer {
+	protected container: HTMLElement;
+	protected options: ViewerOptions;
+	public currentPage: number;
+	public totalPages: number;
+	public zoomFactor: number;
+	public annotations: Map<string, Annotation>;
+	public eventListeners: Map<string, Set<EventCallback>>;
+
+	constructor(container: HTMLElement, options: ViewerOptions = {}) {
 		this.container = container;
 		this.options = options;
 		this.currentPage = 1;
 		this.totalPages = 1;
-		this.zoom = 1.0;
+		this.zoomFactor = 1.0;
 		this.annotations = new Map();
 		this.eventListeners = new Map();
 	}
 
-	async load(source) {
-		throw new Error("load() must be implemented by subclass");
-	}
+	abstract load(source: string | File | Blob): Promise<void>;
 
-	async render() {
-		throw new Error("render() must be implemented by subclass");
-	}
+	abstract render(): Promise<void>;
 
-	async goto(page) {
+	async goto(page: number): Promise<boolean> {
 		if (page < 1 || page > this.totalPages) return false;
 		this.currentPage = page;
 		await this.render();
@@ -31,17 +36,15 @@ export class BaseRenderer {
 		return true;
 	}
 
-	async zoom(factor) {
-		this.zoom = Math.max(0.1, Math.min(5.0, factor));
+	async setZoom(factor: number): Promise<void> {
+		this.zoomFactor = Math.max(0.1, Math.min(5.0, factor));
 		await this.render();
-		this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoom });
+		this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoomFactor });
 	}
 
-	async search(query) {
-		throw new Error("search() must be implemented by subclass");
-	}
+	abstract search(query: string): Promise<SearchResult[]>;
 
-	addAnnotation(annotation) {
+	addAnnotation(annotation: Omit<Annotation, "id" | "page" | "timestamp">): string {
 		const id = `ann_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 		const fullAnnotation = {
 			id,
@@ -54,7 +57,7 @@ export class BaseRenderer {
 		return id;
 	}
 
-	removeAnnotation(id) {
+	removeAnnotation(id: string): boolean {
 		const annotation = this.annotations.get(id);
 		if (annotation) {
 			this.annotations.delete(id);
@@ -64,38 +67,42 @@ export class BaseRenderer {
 		return false;
 	}
 
-	exportAnnotations() {
+	exportAnnotations(): Annotation[] {
 		return Array.from(this.annotations.values());
 	}
 
-	importAnnotations(annotations) {
+	importAnnotations(annotations: Annotation[]): void {
 		annotations.forEach((ann) => {
-			this.annotations.set(ann.id, ann);
+			this.annotations.set(ann.id!, ann);
 		});
 	}
 
-	on(event, callback) {
+	on(event: string, callback: EventCallback): void {
 		if (!this.eventListeners.has(event)) {
 			this.eventListeners.set(event, new Set());
 		}
-		this.eventListeners.get(event).add(callback);
+		this.eventListeners.get(event)!.add(callback);
 	}
 
-	off(event, callback) {
+	off(event: string, callback: EventCallback): void {
 		const listeners = this.eventListeners.get(event);
 		if (listeners) {
 			listeners.delete(callback);
 		}
 	}
 
-	emit(event, data) {
+	emit(event: string, data: any): void {
 		const listeners = this.eventListeners.get(event);
 		if (listeners) {
 			listeners.forEach((callback) => callback(data));
 		}
 	}
 
-	destroy() {
+	get zoom(): number {
+		return this.zoomFactor;
+	}
+
+	destroy(): void {
 		this.eventListeners.clear();
 		this.annotations.clear();
 		if (this.container) {
