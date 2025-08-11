@@ -105,7 +105,7 @@ export abstract class BaseRenderer {
 	get zoom(): number {
 		return this.zoomFactor;
 	}
-	
+
 	set zoom(value: number) {
 		this.zoomFactor = value;
 	}

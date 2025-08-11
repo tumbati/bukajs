@@ -1,12 +1,12 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
-import { BukaViewer, RendererFactory } from "../../src/core/index.js";
+import { BukaViewer, RendererFactory } from "../../src/core/index.ts";
 
 // Import all renderers to register them
-import "../../src/renderers/pdf.js";
-import "../../src/renderers/image.js";
-import "../../src/renderers/docx.js";
-import "../../src/renderers/xlsx.js";
-import "../../src/renderers/presentation.js";
+import "../../src/renderers/pdf.ts";
+import "../../src/renderers/image.ts";
+import "../../src/renderers/docx.ts";
+import "../../src/renderers/xlsx.ts";
+import "../../src/renderers/presentation.ts";
 
 describe("Viewer Integration Tests", () => {
 	let container;
@@ -318,7 +318,7 @@ describe("Viewer Integration Tests", () => {
 		test("should update UI in response to renderer events", async () => {
 			if (viewer.currentRenderer) {
 				// Simulate zoom change
-				viewer.currentRenderer.zoom = 1.5;
+				await viewer.currentRenderer.setZoom(1.5);
 				viewer.currentRenderer.emit("zoom:changed", { zoom: 1.5 });
 
 				// Check that zoom level display is updated

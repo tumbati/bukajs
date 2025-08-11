@@ -15,6 +15,13 @@ export class ImageRenderer extends BaseRenderer {
 	public dragStart: { x: number; y: number };
 	public fitMode: "fit-width" | "fit-height" | "fit-page" | "original";
 
+	// Getter for consistent API with other renderers
+	override get zoom(): number {
+		return this.zoomFactor;
+	}
+	public resizeObserver: ResizeObserver | null;
+	public objectUrl: string | null;
+
 	constructor(container: HTMLElement, options = {}) {
 		super(container, options);
 
@@ -26,6 +33,8 @@ export class ImageRenderer extends BaseRenderer {
 		this.isDragging = false;
 		this.dragStart = { x: 0, y: 0 };
 		this.fitMode = "fit-width"; // 'fit-width', 'fit-height', 'fit-page', 'original'
+		this.resizeObserver = null;
+		this.objectUrl = null;
 
 		this.totalPages = 1;
 		this.currentPage = 1;
@@ -72,19 +81,19 @@ export class ImageRenderer extends BaseRenderer {
 	}
 
 	bindEvents(): void {
-		this.imageWrapper.addEventListener("mousedown", this.handleMouseDown.bind(this));
+		this.imageWrapper?.addEventListener("mousedown", this.handleMouseDown.bind(this));
 		document.addEventListener("mousemove", this.handleMouseMove.bind(this));
 		document.addEventListener("mouseup", this.handleMouseUp.bind(this));
 
-		this.imageWrapper.addEventListener("touchstart", this.handleTouchStart.bind(this), {
+		this.imageWrapper?.addEventListener("touchstart", this.handleTouchStart.bind(this), {
 			passive: false
 		});
-		this.imageWrapper.addEventListener("touchmove", this.handleTouchMove.bind(this), {
+		this.imageWrapper?.addEventListener("touchmove", this.handleTouchMove.bind(this), {
 			passive: false
 		});
-		this.imageWrapper.addEventListener("touchend", this.handleTouchEnd.bind(this));
+		this.imageWrapper?.addEventListener("touchend", this.handleTouchEnd.bind(this));
 
-		this.imageWrapper.addEventListener("wheel", this.handleWheel.bind(this), {
+		this.imageWrapper?.addEventListener("wheel", this.handleWheel.bind(this), {
 			passive: false
 		});
 
@@ -96,7 +105,7 @@ export class ImageRenderer extends BaseRenderer {
 			this.resizeObserver.observe(this.container);
 		}
 
-		this.imageWrapper.addEventListener("dblclick", () => {
+		this.imageWrapper?.addEventListener("dblclick", () => {
 			this.resetView();
 		});
 	}
@@ -126,28 +135,36 @@ export class ImageRenderer extends BaseRenderer {
 			});
 		} catch (error) {
 			console.error("Image loading failed:", error);
-			throw new Error(`Failed to load image: ${error.message}`);
+			throw new Error(
+				`Failed to load image: ${error instanceof Error ? error.message : "Unknown error"}`
+			);
 		}
 	}
 
-	loadImage(imageUrl) {
-		return new Promise((resolve, reject) => {
-			this.imageElement.onload = () => {
-				this.originalDimensions = {
-					width: this.imageElement.naturalWidth,
-					height: this.imageElement.naturalHeight
+	loadImage(imageUrl: string) {
+		return new Promise<void>((resolve, reject) => {
+			if (this.imageElement) {
+				this.imageElement.onload = () => {
+					if (this.imageElement) {
+						this.originalDimensions = {
+							width: this.imageElement.naturalWidth,
+							height: this.imageElement.naturalHeight
+						};
+
+						this.updateContainerDimensions();
+						this.applyFitMode();
+						resolve();
+					}
 				};
 
-				this.updateContainerDimensions();
-				this.applyFitMode();
-				resolve();
-			};
+				this.imageElement.onerror = () => {
+					reject(new Error("Failed to load image"));
+				};
 
-			this.imageElement.onerror = (error) => {
-				reject(new Error("Failed to load image"));
-			};
-
-			this.imageElement.src = imageUrl;
+				this.imageElement.src = imageUrl;
+			} else {
+				reject(new Error("Image element not initialized"));
+			}
 		});
 	}
 
@@ -164,8 +181,10 @@ export class ImageRenderer extends BaseRenderer {
 	}
 
 	updateImageTransform() {
-		const scaleX = this.zoom;
-		const scaleY = this.zoom;
+		if (!this.imageElement) return;
+
+		const scaleX = this.zoomFactor;
+		const scaleY = this.zoomFactor;
 
 		this.imageElement.style.transform = `
       translate(${this.panState.x}px, ${this.panState.y}px) 
@@ -173,11 +192,11 @@ export class ImageRenderer extends BaseRenderer {
     `;
 	}
 
-	async zoom(factor: number): Promise<void> {
-		const oldZoom = this.zoom;
-		this.zoom = Math.max(0.1, Math.min(10.0, factor));
+	override async setZoom(factor: number): Promise<void> {
+		const oldZoom = this.zoomFactor;
+		this.zoomFactor = Math.max(0.1, Math.min(10.0, factor));
 
-		const zoomRatio = this.zoom / oldZoom;
+		const zoomRatio = this.zoomFactor / oldZoom;
 		const centerX = this.containerDimensions.width / 2;
 		const centerY = this.containerDimensions.height / 2;
 
@@ -185,10 +204,10 @@ export class ImageRenderer extends BaseRenderer {
 		this.panState.y = centerY + (this.panState.y - centerY) * zoomRatio;
 
 		this.updateImageTransform();
-		this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoom });
+		this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoomFactor });
 	}
 
-	async goto(page: number): Promise<boolean> {
+	override async goto(page: number): Promise<boolean> {
 		if (page === 1) {
 			this.emit(EVENTS.PAGE_CHANGED, { page: 1, totalPages: 1 });
 			return true;
@@ -206,7 +225,7 @@ export class ImageRenderer extends BaseRenderer {
 		return [];
 	}
 
-	handleMouseDown(event) {
+	handleMouseDown(event: MouseEvent): void {
 		if (event.button === 0) {
 			// Left mouse button
 			this.isDragging = true;
@@ -214,12 +233,12 @@ export class ImageRenderer extends BaseRenderer {
 				x: event.clientX - this.panState.x,
 				y: event.clientY - this.panState.y
 			};
-			this.imageWrapper.style.cursor = "grabbing";
+			if (this.imageWrapper) this.imageWrapper.style.cursor = "grabbing";
 			event.preventDefault();
 		}
 	}
 
-	handleMouseMove(event) {
+	handleMouseMove(event: MouseEvent): void {
 		if (this.isDragging) {
 			this.panState.x = event.clientX - this.dragStart.x;
 			this.panState.y = event.clientY - this.dragStart.y;
@@ -228,61 +247,66 @@ export class ImageRenderer extends BaseRenderer {
 		}
 	}
 
-	handleMouseUp(event) {
+	handleMouseUp(event: MouseEvent): void {
 		if (this.isDragging) {
 			this.isDragging = false;
-			this.imageWrapper.style.cursor = "grab";
+			if (this.imageWrapper) this.imageWrapper.style.cursor = "grab";
 		}
 	}
 
-	handleTouchStart(event) {
+	handleTouchStart(event: TouchEvent): void {
 		if (event.touches.length === 1) {
 			const touch = event.touches[0];
-			this.isDragging = true;
-			this.dragStart = {
-				x: touch.clientX - this.panState.x,
-				y: touch.clientY - this.panState.y
-			};
-			event.preventDefault();
+			if (touch) {
+				this.isDragging = true;
+				this.dragStart = {
+					x: touch.clientX - this.panState.x,
+					y: touch.clientY - this.panState.y
+				};
+				event.preventDefault();
+			}
 		}
 	}
 
-	handleTouchMove(event) {
+	handleTouchMove(event: TouchEvent): void {
 		if (this.isDragging && event.touches.length === 1) {
 			const touch = event.touches[0];
-			this.panState.x = touch.clientX - this.dragStart.x;
-			this.panState.y = touch.clientY - this.dragStart.y;
-			this.updateImageTransform();
-			event.preventDefault();
+			if (touch) {
+				this.panState.x = touch.clientX - this.dragStart.x;
+				this.panState.y = touch.clientY - this.dragStart.y;
+				this.updateImageTransform();
+				event.preventDefault();
+			}
 		}
 	}
 
-	handleTouchEnd(event) {
+	handleTouchEnd(event: TouchEvent): void {
 		this.isDragging = false;
 	}
 
-	handleWheel(event) {
+	handleWheel(event: WheelEvent): void {
 		event.preventDefault();
 
+		if (!this.imageWrapper) return;
 		const rect = this.imageWrapper.getBoundingClientRect();
 		const mouseX = event.clientX - rect.left;
 		const mouseY = event.clientY - rect.top;
 
 		const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
-		const newZoom = Math.max(0.1, Math.min(10.0, this.zoom * zoomFactor));
+		const newZoom = Math.max(0.1, Math.min(10.0, this.zoomFactor * zoomFactor));
 
-		if (newZoom !== this.zoom) {
-			const scaleChange = newZoom / this.zoom;
+		if (newZoom !== this.zoomFactor) {
+			const scaleChange = newZoom / this.zoomFactor;
 			this.panState.x = mouseX + (this.panState.x - mouseX) * scaleChange;
 			this.panState.y = mouseY + (this.panState.y - mouseY) * scaleChange;
 
-			this.zoom = newZoom;
+			this.zoomFactor = newZoom;
 			this.updateImageTransform();
-			this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoom });
+			this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoomFactor });
 		}
 	}
 
-	setFitMode(mode) {
+	setFitMode(mode: "fit-width" | "fit-height" | "fit-page" | "original"): void {
 		this.fitMode = mode;
 		this.applyFitMode();
 	}
@@ -316,15 +340,15 @@ export class ImageRenderer extends BaseRenderer {
 				break;
 		}
 
-		this.zoom = Math.max(0.1, Math.min(10.0, newZoom));
+		this.zoomFactor = Math.max(0.1, Math.min(10.0, newZoom));
 		this.centerImage();
 		this.updateImageTransform();
-		this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoom });
+		this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoomFactor });
 	}
 
 	centerImage() {
-		const scaledWidth = this.originalDimensions.width * this.zoom;
-		const scaledHeight = this.originalDimensions.height * this.zoom;
+		const scaledWidth = this.originalDimensions.width * this.zoomFactor;
+		const scaledHeight = this.originalDimensions.height * this.zoomFactor;
 
 		this.panState.x = (this.containerDimensions.width - scaledWidth) / 2;
 		this.panState.y = (this.containerDimensions.height - scaledHeight) / 2;
@@ -334,7 +358,7 @@ export class ImageRenderer extends BaseRenderer {
 		this.setFitMode("fit-page");
 	}
 
-	getImageTitle(source) {
+	getImageTitle(source: string | File | Blob): string {
 		if (typeof source === "string") {
 			return source.split("/").pop() || "Image";
 		} else if (source instanceof File) {
@@ -345,7 +369,7 @@ export class ImageRenderer extends BaseRenderer {
 
 	getViewInfo() {
 		return {
-			zoom: this.zoom,
+			zoom: this.zoomFactor,
 			pan: { ...this.panState },
 			fitMode: this.fitMode,
 			dimensions: { ...this.originalDimensions },
@@ -369,7 +393,7 @@ export class ImageRenderer extends BaseRenderer {
 		this.setFitMode("original");
 	}
 
-	destroy() {
+	override destroy(): void {
 		super.destroy();
 
 		if (this.objectUrl) {

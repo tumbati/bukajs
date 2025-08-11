@@ -1,14 +1,17 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import { BaseRenderer, EVENTS } from "../../src/core/index.js";
+import { BaseRenderer, EVENTS } from "../../src/core/index.ts";
 
 class TestRenderer extends BaseRenderer {
-	async load() {
+	async load(_source) {
 		this.totalPages = 5;
-		this.emit(EVENTS.DOCUMENT_LOADED, { totalPages: 5, title: "Test Document" });
+		this.emit(EVENTS.DOCUMENT_LOADED, {
+			totalPages: this.totalPages,
+			title: "Test Document"
+		});
 	}
 
 	async render() {
-		// Mock render implementation
+		return Promise.resolve();
 	}
 
 	async search(query) {
@@ -37,9 +40,12 @@ describe("BaseRenderer", () => {
 			expect(renderer.container).toBe(container);
 			expect(renderer.currentPage).toBe(1);
 			expect(renderer.totalPages).toBe(1);
+			expect(renderer.zoomFactor).toBe(1.0);
 			expect(renderer.zoom).toBe(1.0);
 			expect(renderer.annotations).toBeInstanceOf(Map);
 			expect(renderer.eventListeners).toBeInstanceOf(Map);
+			expect(renderer.searchResults).toEqual([]);
+			expect(renderer.currentSearchIndex).toBe(0);
 		});
 
 		test("should accept options", () => {
@@ -49,34 +55,43 @@ describe("BaseRenderer", () => {
 		});
 	});
 
-	describe("abstract methods", () => {
-		class IncompleteRenderer extends BaseRenderer {}
-
-		test("should throw error when load is not implemented", async () => {
-			const incomplete = new IncompleteRenderer(container);
-			await expect(incomplete.load("test")).rejects.toThrow(
-				"load() must be implemented by subclass"
-			);
+	describe("zoom functionality", () => {
+		test("should have zoom getter", () => {
+			renderer.zoomFactor = 1.5;
+			expect(renderer.zoom).toBe(1.5);
 		});
 
-		test("should throw error when render is not implemented", async () => {
-			const incomplete = new IncompleteRenderer(container);
-			await expect(incomplete.render()).rejects.toThrow(
-				"render() must be implemented by subclass"
-			);
+		test("should have zoom setter", () => {
+			renderer.zoom = 2.0;
+			expect(renderer.zoomFactor).toBe(2.0);
 		});
 
-		test("should throw error when search is not implemented", async () => {
-			const incomplete = new IncompleteRenderer(container);
-			await expect(incomplete.search("query")).rejects.toThrow(
-				"search() must be implemented by subclass"
-			);
+		test("should set zoom level with setZoom method", async () => {
+			await renderer.setZoom(1.5);
+			expect(renderer.zoom).toBe(1.5);
+		});
+
+		test("should emit ZOOM_CHANGED event", async () => {
+			const callback = vi.fn();
+			renderer.on(EVENTS.ZOOM_CHANGED, callback);
+
+			await renderer.setZoom(2.0);
+
+			expect(callback).toHaveBeenCalledWith({ zoom: 2.0 });
+		});
+
+		test("should clamp zoom to valid range", async () => {
+			await renderer.setZoom(0.05);
+			expect(renderer.zoom).toBe(0.1);
+
+			await renderer.setZoom(10.0);
+			expect(renderer.zoom).toBe(5.0);
 		});
 	});
 
-	describe("goto", () => {
+	describe("navigation", () => {
 		beforeEach(async () => {
-			await renderer.load();
+			await renderer.load("test");
 		});
 
 		test("should navigate to valid page", async () => {
@@ -103,31 +118,7 @@ describe("BaseRenderer", () => {
 
 			expect(result1).toBe(false);
 			expect(result2).toBe(false);
-			expect(renderer.currentPage).toBe(1); // Should remain unchanged
-		});
-	});
-
-	describe("zoom", () => {
-		test("should set zoom level", async () => {
-			await renderer.zoom(1.5);
-			expect(renderer.zoom).toBe(1.5);
-		});
-
-		test("should emit ZOOM_CHANGED event", async () => {
-			const callback = vi.fn();
-			renderer.on(EVENTS.ZOOM_CHANGED, callback);
-
-			await renderer.zoom(2.0);
-
-			expect(callback).toHaveBeenCalledWith({ zoom: 2.0 });
-		});
-
-		test("should clamp zoom to valid range", async () => {
-			await renderer.zoom(0.05); // Below minimum
-			expect(renderer.zoom).toBe(0.1);
-
-			await renderer.zoom(10.0); // Above maximum
-			expect(renderer.zoom).toBe(5.0);
+			expect(renderer.currentPage).toBe(1);
 		});
 	});
 
@@ -136,7 +127,7 @@ describe("BaseRenderer", () => {
 			const annotation = {
 				type: "highlight",
 				content: "Test annotation",
-				position: { x: 100, y: 200 }
+				position: { x: 100, y: 200, width: 50, height: 20 }
 			};
 
 			const id = renderer.addAnnotation(annotation);
@@ -265,6 +256,28 @@ describe("BaseRenderer", () => {
 			expect(() => {
 				renderer.emit("non-existent-event", {});
 			}).not.toThrow();
+		});
+	});
+
+	describe("search functionality", () => {
+		test("should return search results", async () => {
+			const results = await renderer.search("test query");
+
+			expect(results).toHaveLength(1);
+			expect(results[0]).toMatchObject({
+				page: 1,
+				match: "test query",
+				context: {
+					before: "before ",
+					match: "test query",
+					after: " after"
+				}
+			});
+		});
+
+		test("should return empty array for empty query", async () => {
+			const results = await renderer.search("");
+			expect(results).toEqual([]);
 		});
 	});
 

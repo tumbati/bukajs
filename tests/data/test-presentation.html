@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presentation Renderer Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .controls {
+            padding: 20px;
+            border-bottom: 1px solid #e1e4e8;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .file-input {
+            padding: 8px 12px;
+            border: 1px solid #d0d7de;
+            border-radius: 4px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            background-color: #0969da;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+        }
+        
+        .btn:hover {
+            background-color: #0550ae;
+        }
+        
+        .btn:disabled {
+            background-color: #8c959f;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background-color: #6f42c1;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #5a2d91;
+        }
+        
+        .viewer-container {
+            height: 600px;
+            border: 1px solid #d0d7de;
+            margin: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .status {
+            padding: 10px 20px;
+            background-color: #f6f8fa;
+            border-top: 1px solid #e1e4e8;
+            font-size: 14px;
+            color: #656d76;
+        }
+        
+        .demo-section {
+            padding: 20px;
+            border-bottom: 1px solid #e1e4e8;
+        }
+        
+        .demo-section h3 {
+            margin: 0 0 10px 0;
+            color: #24292f;
+        }
+        
+        .demo-files {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .keyboard-info {
+            font-size: 12px;
+            color: #656d76;
+            margin-left: auto;
+            padding: 8px 12px;
+            background-color: #f6f8fa;
+            border-radius: 4px;
+        }
+        
+        .feature-list {
+            font-size: 14px;
+            color: #656d76;
+            margin-top: 10px;
+        }
+        
+        .feature-list ul {
+            margin: 5px 0;
+            padding-left: 20px;
+        }
+        
+        .feature-list li {
+            margin: 2px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 BukaJS Presentation Renderer Test</h1>
+            <p>Test the PowerPoint/Presentation file renderer functionality</p>
+        </div>
+        
+        <div class="demo-section">
+            <h3>📁 Load Presentation Files</h3>
+            <div class="controls">
+                <input type="file" id="fileInput" class="file-input" accept=".pptx,.ppt" />
+                <button id="loadBtn" class="btn" disabled>Load Presentation</button>
+                <button id="loadDemoBtn" class="btn btn-secondary">Load Demo Slides</button>
+                <div class="keyboard-info">
+                    🎹 Use arrow keys, space, or page up/down to navigate
+                </div>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h3>🎮 Controls</h3>
+            <div class="controls">
+                <button id="prevSlideBtn" class="btn" disabled>← Previous</button>
+                <button id="nextSlideBtn" class="btn" disabled>Next →</button>
+                <button id="firstSlideBtn" class="btn" disabled>⏮ First</button>
+                <button id="lastSlideBtn" class="btn" disabled>⏭ Last</button>
+                <button id="zoomInBtn" class="btn" disabled>🔍 Zoom In</button>
+                <button id="zoomOutBtn" class="btn" disabled>🔍 Zoom Out</button>
+                <button id="toggleThumbnailsBtn" class="btn" disabled>☰ Thumbnails</button>
+                <button id="searchBtn" class="btn" disabled>🔍 Search</button>
+            </div>
+        </div>
+        
+        <div class="viewer-container" id="viewer"></div>
+        
+        <div class="status" id="status">
+            Ready. Select a PPTX/PPT file or load demo slides to start.
+        </div>
+        
+        <div class="demo-section">
+            <h3>✨ Features</h3>
+            <div class="feature-list">
+                <ul>
+                    <li>🎯 PowerPoint (PPTX/PPT) file support</li>
+                    <li>⌨️ Keyboard navigation (arrow keys, space, page up/down)</li>
+                    <li>🖱️ Click navigation controls</li>
+                    <li>📱 Touch/swipe support for mobile</li>
+                    <li>🔍 Zoom in/out functionality</li>
+                    <li>🖼️ Thumbnail panel for slide overview</li>
+                    <li>🔍 Full-text search across slides</li>
+                    <li>📊 Slide counter and progress bar</li>
+                    <li>🎨 Beautiful gradients and modern UI</li>
+                    <li>📱 Responsive design</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { BukaViewer } from './dist/index.esm.js';
+        
+        let viewer = null;
+        
+        // Get DOM elements
+        const fileInput = document.getElementById('fileInput');
+        const loadBtn = document.getElementById('loadBtn');
+        const loadDemoBtn = document.getElementById('loadDemoBtn');
+        const prevSlideBtn = document.getElementById('prevSlideBtn');
+        const nextSlideBtn = document.getElementById('nextSlideBtn');
+        const firstSlideBtn = document.getElementById('firstSlideBtn');
+        const lastSlideBtn = document.getElementById('lastSlideBtn');
+        const zoomInBtn = document.getElementById('zoomInBtn');
+        const zoomOutBtn = document.getElementById('zoomOutBtn');
+        const toggleThumbnailsBtn = document.getElementById('toggleThumbnailsBtn');
+        const searchBtn = document.getElementById('searchBtn');
+        const viewerContainer = document.getElementById('viewer');
+        const status = document.getElementById('status');
+        
+        // Enable load button when file is selected
+        fileInput.addEventListener('change', (e) => {
+            loadBtn.disabled = !e.target.files.length;
+        });
+        
+        // Load user-selected file
+        loadBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            await loadPresentation(file, file.name);
+        });
+        
+        // Load demo presentation
+        loadDemoBtn.addEventListener('click', async () => {
+            // Create mock presentation data for demo
+            const mockPPTXData = new ArrayBuffer(50000); // 50KB mock data
+            const blob = new Blob([mockPPTXData], { 
+                type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' 
+            });
+            await loadPresentation(blob, 'Demo Presentation');
+        });
+        
+        async function loadPresentation(source, filename) {
+            try {
+                status.textContent = 'Loading presentation...';
+                status.style.color = '#656d76';
+                disableAllControls();
+                
+                // Clear previous viewer
+                if (viewer) {
+                    viewer.destroy();
+                    viewer = null;
+                }
+                
+                // Create new viewer
+                viewer = new BukaViewer(viewerContainer, {
+                    theme: 'dark',
+                    showThumbnails: true,
+                    autoFitSlide: true
+                });
+                
+                // Set up event listeners
+                viewer.on('document:loaded', (event) => {
+                    console.log('Presentation loaded:', event);
+                    status.textContent = `Loaded: ${filename} (${event.totalPages} slides)`;
+                    enableControls();
+                });
+                
+                viewer.on('page:changed', (event) => {
+                    console.log('Slide changed:', event);
+                    status.textContent = `Slide ${event.page}/${event.totalPages}` + 
+                        (event.slideTitle ? ` - ${event.slideTitle}` : '');
+                });
+                
+                viewer.on('zoom:changed', (event) => {
+                    console.log('Zoom changed:', event);
+                });
+                
+                viewer.on('search:result', (event) => {
+                    console.log('Search results:', event);
+                    if (event.results.length > 0) {
+                        status.textContent = `Found ${event.results.length} matches for "${event.query}"`;
+                    } else {
+                        status.textContent = `No matches found for "${event.query}"`;
+                    }
+                });
+                
+                viewer.on('error', (event) => {
+                    console.error('Viewer error:', event);
+                    status.textContent = `Error: ${event.message}`;
+                    status.style.color = '#d1242f';
+                });
+                
+                // Load the presentation
+                await viewer.loadDocument(source);
+                
+            } catch (error) {
+                console.error('Load error:', error);
+                status.textContent = `Failed to load: ${error.message}`;
+                status.style.color = '#d1242f';
+            }
+        }
+        
+        // Control event listeners
+        prevSlideBtn.addEventListener('click', () => {
+            if (viewer && viewer.currentRenderer) {
+                const current = viewer.currentRenderer.currentPage;
+                viewer.currentRenderer.goto(Math.max(1, current - 1));
+            }
+        });
+        
+        nextSlideBtn.addEventListener('click', () => {
+            if (viewer && viewer.currentRenderer) {
+                const current = viewer.currentRenderer.currentPage;
+                const total = viewer.currentRenderer.totalPages;
+                viewer.currentRenderer.goto(Math.min(total, current + 1));
+            }
+        });
+        
+        firstSlideBtn.addEventListener('click', () => {
+            if (viewer && viewer.currentRenderer) {
+                viewer.currentRenderer.goto(1);
+            }
+        });
+        
+        lastSlideBtn.addEventListener('click', () => {
+            if (viewer && viewer.currentRenderer) {
+                viewer.currentRenderer.goto(viewer.currentRenderer.totalPages);
+            }
+        });
+        
+        zoomInBtn.addEventListener('click', () => {
+            if (viewer && viewer.currentRenderer) {
+                const currentZoom = viewer.currentRenderer.zoomFactor;
+                viewer.currentRenderer.setZoom(Math.min(currentZoom * 1.2, 3.0));
+            }
+        });
+        
+        zoomOutBtn.addEventListener('click', () => {
+            if (viewer && viewer.currentRenderer) {
+                const currentZoom = viewer.currentRenderer.zoomFactor;
+                viewer.currentRenderer.setZoom(Math.max(currentZoom / 1.2, 0.3));
+            }
+        });
+        
+        toggleThumbnailsBtn.addEventListener('click', () => {
+            if (viewer && viewer.currentRenderer && viewer.currentRenderer.toggleThumbnails) {
+                viewer.currentRenderer.toggleThumbnails();
+            }
+        });
+        
+        searchBtn.addEventListener('click', () => {
+            const query = prompt('Enter search term:');
+            if (query && viewer && viewer.currentRenderer) {
+                viewer.currentRenderer.search(query.trim());
+            }
+        });
+        
+        // Helper functions
+        function disableAllControls() {
+            const controls = [prevSlideBtn, nextSlideBtn, firstSlideBtn, lastSlideBtn, 
+                            zoomInBtn, zoomOutBtn, toggleThumbnailsBtn, searchBtn];
+            controls.forEach(btn => btn.disabled = true);
+        }
+        
+        function enableControls() {
+            const controls = [prevSlideBtn, nextSlideBtn, firstSlideBtn, lastSlideBtn, 
+                            zoomInBtn, zoomOutBtn, toggleThumbnailsBtn, searchBtn];
+            controls.forEach(btn => btn.disabled = false);
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (!viewer || !viewer.currentRenderer) return;
+            
+            // Prevent default for navigation keys
+            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', ' ', 'Home', 'End'].includes(e.key)) {
+                e.preventDefault();
+            }
+            
+            // Handle zoom shortcuts
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case '=':
+                    case '+':
+                        e.preventDefault();
+                        zoomInBtn.click();
+                        break;
+                    case '-':
+                        e.preventDefault();
+                        zoomOutBtn.click();
+                        break;
+                }
+            }
+        });
+        
+        console.log('Presentation Renderer Test initialized');
+    </script>
+</body>
+</html>

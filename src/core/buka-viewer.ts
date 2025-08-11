@@ -74,7 +74,7 @@ export class BukaViewer {
 	async initializeStyles(): Promise<void> {
 		// Inject core styles automatically
 		styleManager.injectDefaultStyles();
-		
+
 		if (this.options.customCSS) {
 			const styleEl = document.createElement("style");
 			styleEl.textContent = this.options.customCSS;
@@ -223,10 +223,10 @@ export class BukaViewer {
 		try {
 			// Clean up previous document
 			this.cleanup();
-			
+
 			// Show loading indicator
 			this.showLoading("Loading document...");
-			
+
 			const mimeType = await DocumentDetector.detectType(source);
 			const documentContainer = this.container.querySelector(
 				".buka-document-container"
@@ -366,11 +366,13 @@ export class BukaViewer {
 	async generateThumbnails(): Promise<void> {
 		if (!this.currentRenderer) return;
 
-		const thumbnailContainer = this.container.querySelector("#thumbnailContainer") as HTMLElement;
+		const thumbnailContainer = this.container.querySelector(
+			"#thumbnailContainer"
+		) as HTMLElement;
 		if (!thumbnailContainer) return;
 
 		// Clear existing thumbnails
-		thumbnailContainer.innerHTML = '';
+		thumbnailContainer.innerHTML = "";
 
 		try {
 			// Generate thumbnails for each page
@@ -381,7 +383,7 @@ export class BukaViewer {
 				}
 			}
 		} catch (error) {
-			console.warn('Failed to generate thumbnails:', error);
+			console.warn("Failed to generate thumbnails:", error);
 		}
 	}
 
@@ -389,12 +391,12 @@ export class BukaViewer {
 		if (!this.currentRenderer) return null;
 
 		try {
-			const thumbnailDiv = document.createElement('div');
-			thumbnailDiv.className = 'buka-thumbnail';
+			const thumbnailDiv = document.createElement("div");
+			thumbnailDiv.className = "buka-thumbnail";
 			thumbnailDiv.dataset.page = pageNum.toString();
-			
+
 			// Create thumbnail for PDF
-			if (this.currentRenderer.constructor.name === 'PDFRenderer') {
+			if (this.currentRenderer.constructor.name === "PDFRenderer") {
 				const thumbnail = await this.generatePDFThumbnail(pageNum);
 				if (thumbnail) {
 					thumbnailDiv.appendChild(thumbnail);
@@ -405,15 +407,15 @@ export class BukaViewer {
 			}
 
 			// Add click handler
-			thumbnailDiv.addEventListener('click', () => {
+			thumbnailDiv.addEventListener("click", () => {
 				if (this.currentRenderer) {
 					this.currentRenderer.goto(pageNum);
 				}
 			});
 
 			// Add page label
-			const label = document.createElement('div');
-			label.className = 'buka-thumbnail-label';
+			const label = document.createElement("div");
+			label.className = "buka-thumbnail-label";
 			label.textContent = pageNum.toString();
 			thumbnailDiv.appendChild(label);
 
@@ -426,25 +428,25 @@ export class BukaViewer {
 
 	async generatePDFThumbnail(pageNum: number): Promise<HTMLCanvasElement | null> {
 		const renderer = this.currentRenderer as any; // Cast to access PDF-specific properties
-		
+
 		if (!renderer.pdfDocument) {
 			return null;
 		}
 
 		try {
 			const page = await renderer.pdfDocument.getPage(pageNum);
-			const canvas = document.createElement('canvas');
-			const context = canvas.getContext('2d');
+			const canvas = document.createElement("canvas");
+			const context = canvas.getContext("2d");
 			if (!context) return null;
 
 			// Set thumbnail size
 			const thumbnailScale = 0.2;
 			const viewport = page.getViewport({ scale: thumbnailScale });
-			
+
 			canvas.width = viewport.width;
 			canvas.height = viewport.height;
-			canvas.style.width = '100%';
-			canvas.style.height = 'auto';
+			canvas.style.width = "100%";
+			canvas.style.height = "auto";
 
 			const renderContext = {
 				canvasContext: context,
@@ -482,15 +484,17 @@ export class BukaViewer {
 
 	updateActiveThumbnail(currentPage: number): void {
 		// Remove active class from all thumbnails
-		const thumbnails = this.container.querySelectorAll('.buka-thumbnail');
-		thumbnails.forEach(thumbnail => {
-			thumbnail.classList.remove('active');
+		const thumbnails = this.container.querySelectorAll(".buka-thumbnail");
+		thumbnails.forEach((thumbnail) => {
+			thumbnail.classList.remove("active");
 		});
 
 		// Add active class to current page thumbnail
-		const activeThumbnail = this.container.querySelector(`.buka-thumbnail[data-page="${currentPage}"]`);
+		const activeThumbnail = this.container.querySelector(
+			`.buka-thumbnail[data-page="${currentPage}"]`
+		);
 		if (activeThumbnail) {
-			activeThumbnail.classList.add('active');
+			activeThumbnail.classList.add("active");
 		}
 	}
 
@@ -513,9 +517,16 @@ export class BukaViewer {
 	}
 
 	nextSearchResult(): void {
-		if (this.currentRenderer && this.currentRenderer.searchResults && this.currentRenderer.searchResults.length > 0) {
-			this.currentRenderer.currentSearchIndex = (this.currentRenderer.currentSearchIndex + 1) % this.currentRenderer.searchResults.length;
-			const result = this.currentRenderer.searchResults[this.currentRenderer.currentSearchIndex];
+		if (
+			this.currentRenderer &&
+			this.currentRenderer.searchResults &&
+			this.currentRenderer.searchResults.length > 0
+		) {
+			this.currentRenderer.currentSearchIndex =
+				(this.currentRenderer.currentSearchIndex + 1) %
+				this.currentRenderer.searchResults.length;
+			const result =
+				this.currentRenderer.searchResults[this.currentRenderer.currentSearchIndex];
 			if (result && result.page) {
 				this.currentRenderer.goto(result.page);
 			}
@@ -523,9 +534,18 @@ export class BukaViewer {
 	}
 
 	previousSearchResult(): void {
-		if (this.currentRenderer && this.currentRenderer.searchResults && this.currentRenderer.searchResults.length > 0) {
-			this.currentRenderer.currentSearchIndex = (this.currentRenderer.currentSearchIndex - 1 + this.currentRenderer.searchResults.length) % this.currentRenderer.searchResults.length;
-			const result = this.currentRenderer.searchResults[this.currentRenderer.currentSearchIndex];
+		if (
+			this.currentRenderer &&
+			this.currentRenderer.searchResults &&
+			this.currentRenderer.searchResults.length > 0
+		) {
+			this.currentRenderer.currentSearchIndex =
+				(this.currentRenderer.currentSearchIndex -
+					1 +
+					this.currentRenderer.searchResults.length) %
+				this.currentRenderer.searchResults.length;
+			const result =
+				this.currentRenderer.searchResults[this.currentRenderer.currentSearchIndex];
 			if (result && result.page) {
 				this.currentRenderer.goto(result.page);
 			}
@@ -543,7 +563,9 @@ export class BukaViewer {
 
 	// Loading indicator methods
 	showLoading(message: string = "Loading..."): void {
-		const documentContainer = this.container.querySelector(".buka-document-container") as HTMLElement;
+		const documentContainer = this.container.querySelector(
+			".buka-document-container"
+		) as HTMLElement;
 		if (documentContainer) {
 			documentContainer.innerHTML = `
 				<div class="buka-loading">
@@ -555,10 +577,12 @@ export class BukaViewer {
 	}
 
 	hideLoading(): void {
-		const documentContainer = this.container.querySelector(".buka-document-container") as HTMLElement;
+		const documentContainer = this.container.querySelector(
+			".buka-document-container"
+		) as HTMLElement;
 		if (documentContainer) {
 			// Only clear if it contains loading content
-			const loadingElement = documentContainer.querySelector('.buka-loading');
+			const loadingElement = documentContainer.querySelector(".buka-loading");
 			if (loadingElement) {
 				loadingElement.remove();
 			}
@@ -570,31 +594,31 @@ export class BukaViewer {
 		// Clear thumbnails
 		this.thumbnails = [];
 		this.currentThumbnailPage = 0;
-		
+
 		// Clear thumbnail container
 		const thumbnailContainer = this.container.querySelector("#thumbnailContainer");
 		if (thumbnailContainer) {
-			thumbnailContainer.innerHTML = '';
+			thumbnailContainer.innerHTML = "";
 		}
-		
+
 		// Hide thumbnails sidebar
 		this.hideThumbnails();
-		
+
 		// Clear search input
 		this.clearSearch();
-		
+
 		// Reset zoom display
 		const zoomBtn = this.container.querySelector("#zoomReset") as HTMLElement;
 		if (zoomBtn) {
 			zoomBtn.textContent = "100%";
 		}
-		
+
 		// Reset page display
 		const pageTotal = this.container.querySelector("#pageTotal") as HTMLElement;
 		const pageInput = this.container.querySelector("#pageInput") as HTMLInputElement;
 		if (pageTotal) pageTotal.textContent = "/ 1";
 		if (pageInput) pageInput.value = "1";
-		
+
 		// Destroy current renderer
 		if (this.currentRenderer) {
 			this.currentRenderer.destroy();

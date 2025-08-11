@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
-import { BukaViewer, EVENTS, RendererFactory } from "../../src/core/index.js";
+import { BukaViewer, EVENTS, RendererFactory } from "../../src/core/index.ts";
 
 // Mock renderer for testing
 class MockRenderer {
@@ -310,8 +310,7 @@ describe("BukaViewer", () => {
 		});
 
 		test("should handle zoom in", () => {
-			const zoomSpy = vi.spyOn(viewer.currentRenderer, "zoom");
-			viewer.currentRenderer.zoom = 1.0;
+			const zoomSpy = vi.spyOn(viewer.currentRenderer, "setZoom");
 
 			const zoomInBtn = container.querySelector("#zoomIn");
 			zoomInBtn.click();
@@ -320,8 +319,7 @@ describe("BukaViewer", () => {
 		});
 
 		test("should handle zoom out", () => {
-			const zoomSpy = vi.spyOn(viewer.currentRenderer, "zoom");
-			viewer.currentRenderer.zoom = 1.0;
+			const zoomSpy = vi.spyOn(viewer.currentRenderer, "setZoom");
 
 			const zoomOutBtn = container.querySelector("#zoomOut");
 			zoomOutBtn.click();
@@ -407,8 +405,7 @@ describe("BukaViewer", () => {
 		});
 
 		test("should handle zoom keyboard shortcuts", () => {
-			const zoomSpy = vi.spyOn(viewer.currentRenderer, "zoom");
-			viewer.currentRenderer.zoom = 1.0;
+			const zoomSpy = vi.spyOn(viewer.currentRenderer, "setZoom");
 
 			// Ctrl/Cmd + Plus
 			const zoomInEvent = new KeyboardEvent("keydown", { key: "+", ctrlKey: true });
@@ -547,7 +544,7 @@ describe("BukaViewer", () => {
 			expect(pageChangedCallback).toHaveBeenCalled();
 
 			// Test zoom change forwarding
-			await viewer.currentRenderer.zoom(1.5);
+			await viewer.currentRenderer.setZoom(1.5);
 			expect(zoomChangedCallback).toHaveBeenCalled();
 		});
 	});

@@ -10,7 +10,7 @@ export const THEMES = {
 	TAILWIND: "tailwind"
 } as const;
 
-type Theme = typeof THEMES[keyof typeof THEMES];
+type Theme = (typeof THEMES)[keyof typeof THEMES];
 
 /**
  * CSS injection utility
@@ -59,7 +59,7 @@ class StyleManager {
 		});
 
 		if (theme !== THEMES.DEFAULT) {
-			element.setAttribute(`data-buka-theme`, theme);
+			element.setAttribute("data-buka-theme", theme);
 		}
 
 		this.currentTheme = theme;
@@ -381,7 +381,11 @@ interface ThemeClasses {
 /**
  * Utility to conditionally apply classes based on theme
  */
-export function themeClass(baseClass: string, theme: Theme = THEMES.DEFAULT, themeClasses: ThemeClasses = {}): string {
+export function themeClass(
+	baseClass: string,
+	theme: Theme = THEMES.DEFAULT,
+	themeClasses: ThemeClasses = {}
+): string {
 	if (theme === THEMES.TAILWIND && themeClasses.tailwind) {
 		return themeClasses.tailwind;
 	}

@@ -13,8 +13,8 @@ export class PresentationRenderer extends BaseRenderer {
 	public slideNavigation: HTMLElement | null;
 	public thumbnailsContainer: HTMLElement | null;
 	public searchableText: string;
-	public searchResults: SearchResult[];
-	public currentSearchIndex: number;
+	override searchResults: SearchResult[];
+	override currentSearchIndex: number;
 	public canShowThumbnails: boolean;
 	public autoFitSlide: boolean;
 	public mainContainer: HTMLDivElement | null;
@@ -536,7 +536,7 @@ export class PresentationRenderer extends BaseRenderer {
 		return await this.goToSlide(page - 1);
 	}
 
-	override async zoom(factor: number): Promise<void> {
+	override async setZoom(factor: number): Promise<void> {
 		this.zoomFactor = Math.max(0.3, Math.min(3.0, factor));
 
 		const scale = this.zoomFactor;
@@ -547,10 +547,10 @@ export class PresentationRenderer extends BaseRenderer {
 		if (!this.slideContainer) return;
 		this.slideContainer.style.overflow = scale > 1 ? "auto" : "hidden";
 
-		this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoom });
+		this.emit(EVENTS.ZOOM_CHANGED, { zoom: this.zoomFactor });
 	}
 
-	async search(query: string): Promise<SearchResult[]> {
+	override async search(query: string): Promise<SearchResult[]> {
 		if (!query.trim()) {
 			this.searchResults = [];
 			this.currentSearchIndex = 0;
@@ -570,11 +570,12 @@ export class PresentationRenderer extends BaseRenderer {
 			let match;
 			while ((match = regex.exec(textContent)) !== null) {
 				this.searchResults.push({
-					slideIndex,
-					slideTitle: slide.title,
 					match: match[0],
-					context: this.getSearchContext(textContent, match.index, match[0].length)
-				});
+					text: textContent,
+					page: slideIndex + 1,
+					index: match.index,
+					length: match[0].length
+				} as SearchResult);
 			}
 		});
 
@@ -586,8 +587,8 @@ export class PresentationRenderer extends BaseRenderer {
 
 			if (!firstResult) return [];
 
-			if (firstResult.slideIndex !== this.currentSlideIndex) {
-				await this.goToSlide(firstResult.slideIndex || 0);
+			if (firstResult.page && firstResult.page - 1 !== this.currentSlideIndex) {
+				await this.goToSlide(firstResult.page - 1);
 			}
 		}
 
@@ -652,7 +653,7 @@ export class PresentationRenderer extends BaseRenderer {
 		}
 	}
 
-	getDocumentTitle(source: string | File | Blob) {
+	getDocumentTitle(source: string | File | Blob): string {
 		if (typeof source === "string") {
 			return (
 				source

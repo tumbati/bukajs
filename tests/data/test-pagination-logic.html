@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOCX Pagination Logic Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-case {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fafafa;
+        }
+        .test-result {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DOCX Pagination Logic Test</h1>
+        <p>This test validates the improved pagination algorithm to ensure it doesn't over-split documents.</p>
+        
+        <button onclick="runTests()">Run Pagination Tests</button>
+        
+        <div id="testResults"></div>
+    </div>
+
+    <script>
+        // Mock the pagination logic for testing
+        class PaginationTester {
+            extractText(html) {
+                const temp = document.createElement("div");
+                temp.innerHTML = html;
+                return temp.textContent || temp.innerText || "";
+            }
+
+            shouldPaginateDocument(html) {
+                const text = this.extractText(html);
+                const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
+                return wordCount > 600;
+            }
+
+            splitByPageBreaks(html) {
+                const pageBreakPatterns = [
+                    /<w:br\s+w:type=["']page["'][^>]*>/gi,
+                    /<br[^>]*style=["'][^"']*page-break[^"']*["'][^>]*>/gi,
+                    /<div[^>]*style=["'][^"']*page-break-before:\s*always[^"']*["'][^>]*>/gi,
+                    /<div[^>]*style=["'][^"']*page-break-after:\s*always[^"']*["'][^>]*>/gi,
+                    /<p[^>]*style=["'][^"']*page-break-before:\s*always[^"']*["'][^>]*>/gi,
+                    /<hr[^>]*data-page-break[^>]*>/gi,
+                    /<!-- page-break -->/gi
+                ];
+
+                let content = html;
+                let hasPageBreaks = false;
+                
+                const PAGE_BREAK_MARKER = '|||PAGE_BREAK|||';
+                pageBreakPatterns.forEach(pattern => {
+                    if (pattern.test(content)) {
+                        hasPageBreaks = true;
+                        content = content.replace(pattern, PAGE_BREAK_MARKER);
+                    }
+                });
+
+                if (!hasPageBreaks) {
+                    return [html];
+                }
+
+                const pages = content.split(PAGE_BREAK_MARKER)
+                    .map(page => page.trim())
+                    .filter(page => page.length > 50);
+
+                if (pages.length > 10) {
+                    return [html];
+                }
+
+                return pages.length > 1 ? pages : [html];
+            }
+
+            splitByMajorSections(html) {
+                const h1Pattern = /<h1[^>]*>/gi;
+                const matches = [...html.matchAll(h1Pattern)];
+
+                if (matches.length === 0 || matches.length > 5) {
+                    return [html];
+                }
+
+                const pages = [];
+                let lastIndex = 0;
+
+                for (let i = 0; i < matches.length; i++) {
+                    const match = matches[i];
+                    const currentIndex = match.index;
+
+                    if (i === 0 && currentIndex > 0) {
+                        pages.push(html.substring(0, currentIndex));
+                    }
+
+                    if (i > 0) {
+                        pages.push(html.substring(lastIndex, currentIndex));
+                    }
+
+                    lastIndex = currentIndex;
+                }
+
+                if (lastIndex < html.length) {
+                    pages.push(html.substring(lastIndex));
+                }
+
+                return pages.filter(page => this.extractText(page).split(/\s+/).length > 50);
+            }
+
+            splitByContentLength(html) {
+                const text = this.extractText(html);
+                const wordCount = text.split(/\s+/).length;
+                const wordsPerPage = 450;
+                const targetPages = Math.max(1, Math.ceil(wordCount / wordsPerPage));
+
+                if (targetPages > 4) {
+                    return [html];
+                }
+
+                const paragraphs = html.split(/<\/p>/gi);
+                if (paragraphs.length < targetPages) {
+                    return [html];
+                }
+
+                const chunkSize = Math.ceil(paragraphs.length / targetPages);
+                const pages = [];
+
+                for (let i = 0; i < paragraphs.length; i += chunkSize) {
+                    const chunk = paragraphs.slice(i, i + chunkSize).join('</p>') + 
+                                  (i + chunkSize < paragraphs.length ? '</p>' : '');
+                    if (chunk.trim()) {
+                        pages.push(chunk.trim());
+                    }
+                }
+
+                return pages.length > 1 ? pages : [html];
+            }
+
+            intelligentSplit(html) {
+                const strategies = [
+                    this.splitByMajorSections(html),
+                    this.splitByContentLength(html)
+                ];
+
+                for (const pages of strategies) {
+                    if (pages.length >= 2 && pages.length <= 6) {
+                        return pages;
+                    }
+                }
+
+                return [html];
+            }
+
+            paginateDocument(html) {
+                // First, try to find explicit page breaks
+                let pages = this.splitByPageBreaks(html);
+                
+                // If no explicit page breaks found, check if document is long enough to split
+                if (pages.length === 1) {
+                    const shouldPaginate = this.shouldPaginateDocument(html);
+                    if (shouldPaginate) {
+                        pages = this.intelligentSplit(html);
+                    }
+                    if (pages.length <= 1) {
+                        pages = [html];
+                    }
+                }
+
+                return pages;
+            }
+        }
+
+        function createTestCase(name, html, expectedPageRange) {
+            return { name, html, expectedPageRange };
+        }
+
+        function runTests() {
+            const tester = new PaginationTester();
+            const resultsContainer = document.getElementById('testResults');
+            resultsContainer.innerHTML = '<h2>Test Results</h2>';
+
+            const testCases = [
+                createTestCase(
+                    "Short document (should stay as 1 page)",
+                    "<p>This is a short document with only a few words. It should not be split into multiple pages because it's too short.</p>",
+                    [1, 1]
+                ),
+                createTestCase(
+                    "Medium document (should stay as 1 page)",
+                    "<p>" + "This is a medium-length document. ".repeat(50) + "</p>",
+                    [1, 1]
+                ),
+                createTestCase(
+                    "Long document without breaks (should split conservatively)",
+                    "<p>" + "This is a very long document that contains many words and should be split into multiple pages based on content length. ".repeat(100) + "</p>",
+                    [2, 4]
+                ),
+                createTestCase(
+                    "Document with explicit page break",
+                    "<p>Page 1 content</p><!-- page-break --><p>Page 2 content</p>",
+                    [2, 2]
+                ),
+                createTestCase(
+                    "Document with H1 sections (moderate splitting)",
+                    "<h1>Chapter 1</h1><p>" + "Content for chapter 1. ".repeat(80) + "</p><h1>Chapter 2</h1><p>" + "Content for chapter 2. ".repeat(80) + "</p>",
+                    [2, 3]
+                ),
+                createTestCase(
+                    "Document with too many H1s (should not over-split)",
+                    "<h1>Title 1</h1><p>Short content</p><h1>Title 2</h1><p>Short content</p><h1>Title 3</h1><p>Short content</p><h1>Title 4</h1><p>Short content</p><h1>Title 5</h1><p>Short content</p><h1>Title 6</h1><p>Short content</p>",
+                    [1, 1]
+                ),
+                createTestCase(
+                    "Three-page document (realistic test)",
+                    "<h1>Introduction</h1><p>" + "Introduction content with sufficient length to warrant pagination. ".repeat(80) + "</p><h1>Main Content</h1><p>" + "Main content section with substantial text that should form a separate page. ".repeat(80) + "</p><h1>Conclusion</h1><p>" + "Conclusion section with enough content to be meaningful. ".repeat(80) + "</p>",
+                    [2, 4]
+                )
+            ];
+
+            testCases.forEach((testCase, index) => {
+                const pages = tester.paginateDocument(testCase.html);
+                const pageCount = pages.length;
+                const [minExpected, maxExpected] = testCase.expectedPageRange;
+                
+                const testDiv = document.createElement('div');
+                testDiv.className = 'test-case';
+                
+                const isSuccess = pageCount >= minExpected && pageCount <= maxExpected;
+                const resultClass = isSuccess ? 'success' : 'error';
+                
+                const wordCount = tester.extractText(testCase.html).split(/\s+/).length;
+                
+                testDiv.innerHTML = `
+                    <h3>Test ${index + 1}: ${testCase.name}</h3>
+                    <p><strong>Word count:</strong> ${wordCount}</p>
+                    <p><strong>Expected pages:</strong> ${minExpected}-${maxExpected}</p>
+                    <p><strong>Actual pages:</strong> ${pageCount}</p>
+                    <div class="test-result ${resultClass}">
+                        ${isSuccess ? '✅ PASS' : '❌ FAIL'}: ${pageCount} pages generated
+                    </div>
+                    <details>
+                        <summary>Show HTML and pages</summary>
+                        <pre>${testCase.html.substring(0, 200)}${testCase.html.length > 200 ? '...' : ''}</pre>
+                        <p><strong>Generated pages:</strong></p>
+                        ${pages.map((page, i) => `<pre>Page ${i + 1}: ${tester.extractText(page).substring(0, 100)}...</pre>`).join('')}
+                    </details>
+                `;
+                
+                resultsContainer.appendChild(testDiv);
+            });
+
+            // Summary
+            const summaryDiv = document.createElement('div');
+            summaryDiv.style.cssText = 'margin-top: 20px; padding: 15px; background-color: #e9ecef; border-radius: 5px;';
+            const passedTests = testCases.filter((testCase, index) => {
+                const pages = tester.paginateDocument(testCase.html);
+                const pageCount = pages.length;
+                const [minExpected, maxExpected] = testCase.expectedPageRange;
+                return pageCount >= minExpected && pageCount <= maxExpected;
+            }).length;
+            
+            summaryDiv.innerHTML = `
+                <h3>Test Summary</h3>
+                <p><strong>${passedTests}/${testCases.length}</strong> tests passed</p>
+                <p>The improved pagination algorithm should prevent over-splitting while maintaining reasonable page breaks.</p>
+            `;
+            resultsContainer.appendChild(summaryDiv);
+        }
+    </script>
+</body>
+</html>

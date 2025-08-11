@@ -15,7 +15,7 @@
 	"scripts": {
 		"build": "rollup -c",
 		"dev": "rollup -c -w",
-		"test": "vitest",
+		"test": "vitest --run",
 		"test:coverage": "vitest --coverage",
 		"test:ui": "vitest --ui",
 		"lint": "eslint src tests --ext .js,.ts",

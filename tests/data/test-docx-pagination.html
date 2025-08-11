@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOCX Pagination Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .viewer-container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            position: relative;
+        }
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .page-info {
+            padding: 8px 16px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .zoom-controls {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #e9ecef;
+            color: #495057;
+            font-size: 14px;
+        }
+        .search-controls {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        input[type="text"] {
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DOCX Pagination Test</h1>
+        <div class="controls">
+            <input type="file" id="fileInput" accept=".docx" />
+            
+            <div class="search-controls">
+                <input type="text" id="searchInput" placeholder="Search in document..." />
+                <button onclick="search()">Search</button>
+                <button onclick="clearSearch()">Clear</button>
+            </div>
+            
+            <div class="zoom-controls">
+                <button onclick="zoomOut()">−</button>
+                <span id="zoomLevel">100%</span>
+                <button onclick="zoomIn()">+</button>
+            </div>
+            
+            <button onclick="prevPage()" id="prevBtn" disabled>Previous</button>
+            <div class="page-info">
+                Page <span id="currentPage">1</span> of <span id="totalPages">1</span>
+            </div>
+            <button onclick="nextPage()" id="nextBtn" disabled>Next</button>
+        </div>
+        
+        <div class="viewer-container" id="viewerContainer">
+            <p style="text-align: center; margin-top: 250px; color: #666;">
+                Select a DOCX file to test the pagination
+            </p>
+        </div>
+        
+        <div class="status" id="status">Ready to load DOCX files</div>
+    </div>
+
+    <script type="module">
+        // Mock the imports for testing
+        const EVENTS = {
+            DOCUMENT_LOADED: 'document_loaded',
+            PAGE_CHANGED: 'page_changed',
+            ZOOM_CHANGED: 'zoom_changed',
+            SEARCH_RESULT: 'search_result'
+        };
+
+        // Mock renderer for testing UI
+        class MockDocxRenderer {
+            constructor(container) {
+                this.container = container;
+                this.currentPage = 1;
+                this.totalPages = 3; // Simulate 3 pages
+                this.zoomFactor = 1.0;
+                this.listeners = {};
+                this.setupMockPages();
+            }
+
+            setupMockPages() {
+                this.container.innerHTML = `
+                    <div style="display: flex; flex-direction: column; align-items: center; padding: 20px; gap: 20px; height: 100%; overflow-y: auto; background: #f0f0f0;">
+                        <div style="width: 600px; height: 800px; background: white; box-shadow: 0 4px 8px rgba(0,0,0,0.1); padding: 40px; border-radius: 8px;">
+                            <h1>Page 1</h1>
+                            <p>This is the first page of the mock DOCX document. The pagination system should allow you to navigate between pages smoothly.</p>
+                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+                        </div>
+                        <div style="width: 600px; height: 800px; background: white; box-shadow: 0 4px 8px rgba(0,0,0,0.1); padding: 40px; border-radius: 8px;">
+                            <h1>Page 2</h1>
+                            <p>This is the second page of the document. You should be able to scroll or use navigation buttons to move between pages.</p>
+                            <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+                        </div>
+                        <div style="width: 600px; height: 800px; background: white; box-shadow: 0 4px 8px rgba(0,0,0,0.1); padding: 40px; border-radius: 8px;">
+                            <h1>Page 3</h1>
+                            <p>This is the final page of the mock document. The zoom controls should work to scale all pages uniformly.</p>
+                            <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            on(event, callback) {
+                if (!this.listeners[event]) this.listeners[event] = [];
+                this.listeners[event].push(callback);
+            }
+
+            emit(event, data) {
+                if (this.listeners[event]) {
+                    this.listeners[event].forEach(callback => callback(data));
+                }
+            }
+
+            async load(file) {
+                // Simulate loading
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                this.emit(EVENTS.DOCUMENT_LOADED, {
+                    totalPages: this.totalPages,
+                    title: file.name
+                });
+            }
+
+            async goto(page) {
+                if (page >= 1 && page <= this.totalPages) {
+                    this.currentPage = page;
+                    // Simulate scrolling to page
+                    const pages = this.container.querySelectorAll('div[style*="background: white"]');
+                    if (pages[page - 1]) {
+                        pages[page - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                    this.emit(EVENTS.PAGE_CHANGED, {
+                        page: this.currentPage,
+                        totalPages: this.totalPages
+                    });
+                    return true;
+                }
+                return false;
+            }
+
+            async setZoom(factor) {
+                this.zoomFactor = factor;
+                const container = this.container.firstElementChild;
+                if (container) {
+                    container.style.transform = `scale(${factor})`;
+                    container.style.transformOrigin = 'top center';
+                }
+                this.emit(EVENTS.ZOOM_CHANGED, { zoom: factor });
+            }
+
+            async search(query) {
+                // Mock search results
+                const results = query ? [
+                    { match: query, page: 1, index: 0 },
+                    { match: query, page: 2, index: 50 }
+                ] : [];
+                this.emit(EVENTS.SEARCH_RESULT, {
+                    query,
+                    results,
+                    currentIndex: 0
+                });
+                return results;
+            }
+
+            destroy() {
+                this.listeners = {};
+            }
+        }
+
+        const container = document.getElementById('viewerContainer');
+        const fileInput = document.getElementById('fileInput');
+        const status = document.getElementById('status');
+        const currentPageEl = document.getElementById('currentPage');
+        const totalPagesEl = document.getElementById('totalPages');
+        const zoomLevelEl = document.getElementById('zoomLevel');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const searchInput = document.getElementById('searchInput');
+
+        let renderer = new MockDocxRenderer(container);
+        let currentZoom = 1.0;
+
+        function updateStatus(message) {
+            status.textContent = message;
+            console.log('Status:', message);
+        }
+
+        function updatePageInfo() {
+            currentPageEl.textContent = renderer.currentPage;
+            totalPagesEl.textContent = renderer.totalPages;
+            prevBtn.disabled = renderer.currentPage <= 1;
+            nextBtn.disabled = renderer.currentPage >= renderer.totalPages;
+        }
+
+        function updateZoomLevel() {
+            zoomLevelEl.textContent = Math.round(currentZoom * 100) + '%';
+        }
+
+        // Event listeners
+        renderer.on(EVENTS.DOCUMENT_LOADED, (data) => {
+            updateStatus(`Document loaded: ${data.totalPages} pages`);
+            updatePageInfo();
+        });
+
+        renderer.on(EVENTS.PAGE_CHANGED, (data) => {
+            updateStatus(`Navigated to page ${data.page} of ${data.totalPages}`);
+            updatePageInfo();
+        });
+
+        renderer.on(EVENTS.ZOOM_CHANGED, (data) => {
+            currentZoom = data.zoom;
+            updateZoomLevel();
+            updateStatus(`Zoom changed to ${Math.round(data.zoom * 100)}%`);
+        });
+
+        renderer.on(EVENTS.SEARCH_RESULT, (data) => {
+            updateStatus(`Search "${data.query}": ${data.results.length} results found`);
+        });
+
+        // File input handler
+        fileInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                updateStatus('Loading document...');
+                await renderer.load(file);
+            } catch (error) {
+                updateStatus(`Error: ${error.message}`);
+            }
+        });
+
+        // Control functions
+        window.prevPage = async () => {
+            if (renderer.currentPage > 1) {
+                await renderer.goto(renderer.currentPage - 1);
+            }
+        };
+
+        window.nextPage = async () => {
+            if (renderer.currentPage < renderer.totalPages) {
+                await renderer.goto(renderer.currentPage + 1);
+            }
+        };
+
+        window.zoomIn = async () => {
+            const newZoom = Math.min(3.0, currentZoom * 1.2);
+            await renderer.setZoom(newZoom);
+        };
+
+        window.zoomOut = async () => {
+            const newZoom = Math.max(0.5, currentZoom / 1.2);
+            await renderer.setZoom(newZoom);
+        };
+
+        window.search = async () => {
+            const query = searchInput.value.trim();
+            if (query) {
+                await renderer.search(query);
+            }
+        };
+
+        window.clearSearch = async () => {
+            searchInput.value = '';
+            await renderer.search('');
+        };
+
+        // Initialize
+        updatePageInfo();
+        updateZoomLevel();
+        updateStatus('Mock DOCX renderer loaded - UI controls are functional');
+    </script>
+</body>
+</html>

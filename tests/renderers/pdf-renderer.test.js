@@ -5,6 +5,7 @@ vi.mock("pdfjs-dist", () => ({
 	getDocument: vi.fn(() => ({
 		promise: Promise.resolve({
 			numPages: 3,
+			destroy: vi.fn(),
 			getPage: vi.fn((pageNum) =>
 				Promise.resolve({
 					pageNumber: pageNum,
@@ -47,7 +48,7 @@ describe("PDFRenderer", () => {
 
 	beforeEach(async () => {
 		// Import after mocking
-		const module = await import("../../src/renderers/pdf.js");
+		const module = await import("../../src/renderers/pdf.ts");
 		PDFRenderer = module.default;
 
 		container = document.createElement("div");
@@ -100,7 +101,7 @@ describe("PDFRenderer", () => {
 		});
 
 		test("should load PDF from URL string", async () => {
-			await renderer.load("test.pdf");
+			await renderer.load("https://example.com/test.pdf");
 
 			expect(renderer.pdfDocument).toBeTruthy();
 			expect(renderer.totalPages).toBe(3);
@@ -227,16 +228,16 @@ describe("PDFRenderer", () => {
 		});
 
 		test("should set zoom level", async () => {
-			await renderer.zoom(1.5);
+			await renderer.setZoom(1.5);
 
 			expect(renderer.zoom).toBe(1.5);
 		});
 
 		test("should clamp zoom to valid range", async () => {
-			await renderer.zoom(0.05);
+			await renderer.setZoom(0.05);
 			expect(renderer.zoom).toBe(0.1);
 
-			await renderer.zoom(10.0);
+			await renderer.setZoom(10.0);
 			expect(renderer.zoom).toBe(5.0);
 		});
 
@@ -244,7 +245,7 @@ describe("PDFRenderer", () => {
 			const callback = vi.fn();
 			renderer.on("zoom:changed", callback);
 
-			await renderer.zoom(1.5);
+			await renderer.setZoom(1.5);
 
 			expect(callback).toHaveBeenCalledWith({ zoom: 1.5 });
 		});
@@ -252,7 +253,7 @@ describe("PDFRenderer", () => {
 		test("should re-render after zoom", async () => {
 			const renderSpy = vi.spyOn(renderer, "render");
 
-			await renderer.zoom(1.5);
+			await renderer.setZoom(1.5);
 
 			expect(renderSpy).toHaveBeenCalled();
 		});

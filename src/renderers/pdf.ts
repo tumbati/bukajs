@@ -14,8 +14,8 @@ export class PDFRenderer extends BaseRenderer {
 	public scrollContainer: HTMLElement | null;
 	public documentWrapper: HTMLElement | null;
 	public pageElements: HTMLElement[];
-	public searchResults: SearchResult[];
-	public currentSearchIndex: number;
+	override searchResults: SearchResult[];
+	override currentSearchIndex: number;
 	private lastRenderedZoom: number;
 	private scrollHandler: (() => void) | null;
 
@@ -88,7 +88,7 @@ export class PDFRenderer extends BaseRenderer {
 		try {
 			// Clean up any previous document
 			await this.cleanup();
-			
+
 			const pdfjsLib = await this.loadPDFJS();
 
 			let typedArray: Uint8Array;
@@ -155,8 +155,8 @@ export class PDFRenderer extends BaseRenderer {
 
 		// Clear existing pages only if starting fresh
 		if (this.pageElements.length === 0) {
-			this.documentWrapper.innerHTML = '';
-			
+			this.documentWrapper.innerHTML = "";
+
 			for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
 				const pageElement = await this.renderSinglePage(pageNum);
 				if (pageElement) {
@@ -168,7 +168,7 @@ export class PDFRenderer extends BaseRenderer {
 			// Set up scroll listener to track current page
 			if (this.scrollContainer && !this.scrollHandler) {
 				this.scrollHandler = this.handleScroll.bind(this);
-				this.scrollContainer.addEventListener('scroll', this.scrollHandler);
+				this.scrollContainer.addEventListener("scroll", this.scrollHandler);
 			}
 		} else {
 			// Re-render existing pages with new zoom
@@ -181,32 +181,32 @@ export class PDFRenderer extends BaseRenderer {
 			const pageElement = this.pageElements[pageNum - 1];
 			if (pageElement) {
 				// Clear the page content and re-render
-				const canvas = pageElement.querySelector('canvas');
-				const textLayer = pageElement.querySelector('.buka-pdf-page-text-layer');
-				
+				const canvas = pageElement.querySelector("canvas");
+				const textLayer = pageElement.querySelector(".buka-pdf-page-text-layer");
+
 				if (canvas && textLayer) {
 					const page = await this.pdfDocument.getPage(pageNum);
 					const viewport = page.getViewport({ scale: this.zoomFactor });
-					
+
 					// Update canvas
-					const context = canvas.getContext('2d');
+					const context = canvas.getContext("2d");
 					if (context) {
 						canvas.width = viewport.width;
 						canvas.height = viewport.height;
 						canvas.style.width = `${viewport.width}px`;
 						canvas.style.height = `${viewport.height}px`;
-						
+
 						const renderContext = {
 							canvasContext: context,
 							viewport: viewport
 						};
 						await page.render(renderContext).promise;
 					}
-					
+
 					// Update text layer
-					textLayer.innerHTML = '';
-					textLayer.style.width = `${viewport.width}px`;
-					textLayer.style.height = `${viewport.height}px`;
+					textLayer.innerHTML = "";
+					(textLayer as HTMLElement).style.width = `${viewport.width}px`;
+					(textLayer as HTMLElement).style.height = `${viewport.height}px`;
 					await this.renderPageTextLayer(page, textLayer as HTMLElement, viewport);
 				}
 			}
@@ -219,8 +219,8 @@ export class PDFRenderer extends BaseRenderer {
 			const viewport = page.getViewport({ scale: this.zoomFactor });
 
 			// Create page container
-			const pageContainer = document.createElement('div');
-			pageContainer.className = 'buka-pdf-page-container';
+			const pageContainer = document.createElement("div");
+			pageContainer.className = "buka-pdf-page-container";
 			pageContainer.dataset.pageNumber = pageNum.toString();
 			pageContainer.style.cssText = `
 				position: relative;
@@ -230,9 +230,9 @@ export class PDFRenderer extends BaseRenderer {
 			`;
 
 			// Create canvas for this page
-			const canvas = document.createElement('canvas');
-			canvas.className = 'buka-pdf-page-canvas';
-			const context = canvas.getContext('2d');
+			const canvas = document.createElement("canvas");
+			canvas.className = "buka-pdf-page-canvas";
+			const context = canvas.getContext("2d");
 			if (!context) return null;
 
 			canvas.width = viewport.width;
@@ -248,8 +248,8 @@ export class PDFRenderer extends BaseRenderer {
 			await page.render(renderContext).promise;
 
 			// Create text layer for this page
-			const textLayer = document.createElement('div');
-			textLayer.className = 'buka-pdf-page-text-layer';
+			const textLayer = document.createElement("div");
+			textLayer.className = "buka-pdf-page-text-layer";
 			textLayer.style.cssText = `
 				position: absolute;
 				top: 0;
@@ -317,7 +317,7 @@ export class PDFRenderer extends BaseRenderer {
 
 		const scrollTop = this.scrollContainer.scrollTop;
 		const containerHeight = this.scrollContainer.clientHeight;
-		
+
 		// Find which page is currently most visible
 		let currentVisiblePage = 1;
 		let maxVisibleArea = 0;
@@ -325,11 +325,11 @@ export class PDFRenderer extends BaseRenderer {
 		this.pageElements.forEach((pageElement, index) => {
 			const pageRect = pageElement.getBoundingClientRect();
 			const containerRect = this.scrollContainer!.getBoundingClientRect();
-			
+
 			const visibleTop = Math.max(pageRect.top, containerRect.top);
 			const visibleBottom = Math.min(pageRect.bottom, containerRect.bottom);
 			const visibleHeight = Math.max(0, visibleBottom - visibleTop);
-			
+
 			if (visibleHeight > maxVisibleArea) {
 				maxVisibleArea = visibleHeight;
 				currentVisiblePage = index + 1;
@@ -413,9 +413,9 @@ export class PDFRenderer extends BaseRenderer {
 			// Scroll to the specific page
 			const pageElement = this.pageElements[page - 1];
 			if (pageElement) {
-				pageElement.scrollIntoView({ 
-					behavior: 'smooth', 
-					block: 'start' 
+				pageElement.scrollIntoView({
+					behavior: "smooth",
+					block: "start"
 				});
 				this.currentPage = page;
 				this.emit(EVENTS.PAGE_CHANGED, {
@@ -444,30 +444,28 @@ export class PDFRenderer extends BaseRenderer {
 
 		this.searchResults = [];
 		this.clearSearchHighlights();
-		
+
 		const searchRegex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
 
 		for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
 			try {
 				const page = await this.pdfDocument.getPage(pageNum);
 				const textContent = await page.getTextContent();
-				
+
 				// Search through individual text items for more precise highlighting
 				textContent.items.forEach((item: any, itemIndex: number) => {
 					let match: RegExpExecArray | null;
 					const text = item.str;
 					const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
-					
+
 					while ((match = regex.exec(text)) !== null) {
 						this.searchResults.push({
 							match: match[0],
 							page: pageNum,
 							text: match[0],
 							index: match.index,
-							length: match[0].length,
-							itemIndex: itemIndex,
-							textItem: item
-						});
+							length: match[0].length
+						} as SearchResult);
 					}
 				});
 			} catch (error) {
@@ -498,27 +496,33 @@ export class PDFRenderer extends BaseRenderer {
 
 		// Highlight in all pages
 		for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
-			const pageResults = this.searchResults.filter(result => result.page === pageNum);
+			const pageResults = this.searchResults.filter((result) => result.page === pageNum);
 			if (pageResults.length > 0) {
 				await this.highlightPageSearchResults(pageNum, pageResults, query);
 			}
 		}
 	}
 
-	async highlightPageSearchResults(pageNum: number, results: SearchResult[], query: string): Promise<void> {
+	async highlightPageSearchResults(
+		pageNum: number,
+		results: SearchResult[],
+		query: string
+	): Promise<void> {
 		const pageElement = this.pageElements[pageNum - 1];
 		if (!pageElement) return;
 
-		const textLayer = pageElement.querySelector('.buka-pdf-page-text-layer');
+		const textLayer = pageElement.querySelector(".buka-pdf-page-text-layer");
 		if (!textLayer) return;
 
 		// Find all text spans in this page's text layer
-		const textSpans = textLayer.querySelectorAll('span[data-text-index]');
-		
+		const textSpans = textLayer.querySelectorAll("span[data-text-index]");
+
 		results.forEach((result: any) => {
 			if (result.textItem && result.itemIndex !== undefined) {
 				// Find the corresponding span element
-				const span = textLayer.querySelector(`span[data-text-index="${result.itemIndex}"]`) as HTMLElement;
+				const span = textLayer.querySelector(
+					`span[data-text-index="${result.itemIndex}"]`
+				) as HTMLElement;
 				if (span && span.textContent) {
 					// Create highlight overlay
 					const highlight = document.createElement("div");
@@ -538,12 +542,12 @@ export class PDFRenderer extends BaseRenderer {
 					highlight.style.top = spanStyle.top;
 					highlight.style.fontSize = spanStyle.fontSize;
 					highlight.style.transform = spanStyle.transform;
-					
+
 					// Calculate highlight width based on matched text
-					const canvas = document.createElement('canvas');
-					const ctx = canvas.getContext('2d');
+					const canvas = document.createElement("canvas");
+					const ctx = canvas.getContext("2d");
 					if (ctx) {
-						ctx.font = spanStyle.fontSize + ' ' + spanStyle.fontFamily;
+						ctx.font = spanStyle.fontSize + " " + spanStyle.fontFamily;
 						const textWidth = ctx.measureText(result.match).width;
 						highlight.style.width = `${textWidth}px`;
 					} else {
@@ -560,7 +564,7 @@ export class PDFRenderer extends BaseRenderer {
 
 	clearSearchHighlights(): void {
 		// Clear highlights from all pages
-		this.pageElements.forEach(pageElement => {
+		this.pageElements.forEach((pageElement) => {
 			const highlights = pageElement.querySelectorAll(".buka-search-highlight");
 			highlights.forEach((highlight) => highlight.remove());
 		});
@@ -637,27 +641,27 @@ export class PDFRenderer extends BaseRenderer {
 	async cleanup(): Promise<void> {
 		// Clear search highlights
 		this.clearSearchHighlights();
-		
+
 		// Clear document content
 		if (this.documentWrapper) {
-			this.documentWrapper.innerHTML = '';
+			this.documentWrapper.innerHTML = "";
 		}
-		
+
 		// Clear page elements array
 		this.pageElements = [];
-		
+
 		// Remove scroll listener
 		if (this.scrollContainer && this.scrollHandler) {
-			this.scrollContainer.removeEventListener('scroll', this.scrollHandler);
+			this.scrollContainer.removeEventListener("scroll", this.scrollHandler);
 			this.scrollHandler = null;
 		}
-		
+
 		// Destroy previous PDF document
 		if (this.pdfDocument) {
 			try {
 				this.pdfDocument.destroy();
 			} catch (error) {
-				console.warn('Error destroying PDF document:', error);
+				console.warn("Error destroying PDF document:", error);
 			}
 		}
 
@@ -672,7 +676,7 @@ export class PDFRenderer extends BaseRenderer {
 
 	override destroy(): void {
 		super.destroy();
-		
+
 		// Use the cleanup method
 		this.cleanup();
 	}
