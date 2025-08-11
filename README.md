@@ -2,7 +2,7 @@
 
 Universal document viewer library supporting PDF, DOCX, Images, XLSX, and PowerPoint files.
 
-[![npm version](https://badge.fury.io/js/%40tumbati%2Fbukajs.svg)](https://badge.fury.io/js/%40tumbati%2Fbukajs)
+[![npm version](https://badge.fury.io/js/@tumbati%2Fbukajs.svg?icon=si%3Anpm)](https://badge.fury.io/js/@tumbati%2Fbukajs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features

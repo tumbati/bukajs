@@ -46,7 +46,7 @@ export default [
     output: {
       file: 'dist/index.esm.js',
       format: 'esm',
-      sourcemap: true,
+      sourcemap: !production,
       inlineDynamicImports: true
     }
   },
@@ -59,7 +59,7 @@ export default [
       file: 'dist/index.js',
       format: 'umd',
       name: 'BukaJS',
-      sourcemap: true,
+      sourcemap: !production,
       inlineDynamicImports: true,
       globals: {
         'pdfjs-dist': 'pdfjsLib',
@@ -129,7 +129,7 @@ export default [
       file: 'dist/renderers/pdf.js',
       format: 'umd',
       name: 'BukaJSPDFRenderer',
-      sourcemap: true,
+      sourcemap: !production,
       globals: {
         'pdfjs-dist': 'pdfjsLib',
         '../core/index.js': 'BukaJS'
@@ -144,7 +144,7 @@ export default [
       file: 'dist/renderers/image.js',
       format: 'umd',
       name: 'BukaJSImageRenderer',
-      sourcemap: true,
+      sourcemap: !production,
       globals: {
         '../core/index.js': 'BukaJS'
       }
@@ -158,7 +158,7 @@ export default [
       file: 'dist/renderers/docx.js',
       format: 'umd',
       name: 'BukaJSDocxRenderer',
-      sourcemap: true,
+      sourcemap: !production,
       globals: {
         'mammoth': 'mammoth',
         '../core/index.js': 'BukaJS'
@@ -173,7 +173,7 @@ export default [
       file: 'dist/renderers/xlsx.js',
       format: 'umd',
       name: 'BukaJSXlsxRenderer',
-      sourcemap: true,
+      sourcemap: !production,
       globals: {
         'xlsx': 'XLSX',
         '../core/index.js': 'BukaJS'
@@ -188,7 +188,7 @@ export default [
       file: 'dist/renderers/presentation.js',
       format: 'umd',
       name: 'BukaJSPresentationRenderer',
-      sourcemap: true,
+      sourcemap: !production,
       globals: {
         '../core/index.js': 'BukaJS'
       }

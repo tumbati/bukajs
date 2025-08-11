@@ -43,3 +43,6 @@ yarn-error.log*
 # Temp files
 *.tmp
 *.temp
+
+# Source maps (development only)
+*.map
