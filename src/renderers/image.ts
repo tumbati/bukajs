@@ -5,8 +5,27 @@ import type { SearchResult } from "../types";
  * Image Renderer for PNG, JPEG, SVG
  * Handles image documents with zoom, pan, and fit-to-screen functionality
  */
+export interface ImageFilterState {
+	brightness: number;
+	contrast: number;
+	saturation: number;
+	hue: number;
+	blur: number;
+	sepia: number;
+	grayscale: number;
+}
+
+export interface CropArea {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
 export class ImageRenderer extends BaseRenderer {
 	public imageElement: HTMLImageElement | null;
+	public canvasElement: HTMLCanvasElement | null;
+	public canvasContext: CanvasRenderingContext2D | null;
 	public imageWrapper: HTMLElement | null;
 	public originalDimensions: { width: number; height: number };
 	public containerDimensions: { width: number; height: number };
@@ -14,6 +33,13 @@ export class ImageRenderer extends BaseRenderer {
 	public isDragging: boolean;
 	public dragStart: { x: number; y: number };
 	public fitMode: "fit-width" | "fit-height" | "fit-page" | "original";
+	public filters: ImageFilterState;
+	public cropArea: CropArea | null;
+	public isCropping: boolean;
+	public cropOverlay: HTMLElement | null;
+	public originalImageData: ImageData | null;
+	public isFiltered: boolean;
+	public cropStartPoint: { x: number; y: number } | null;
 
 	// Getter for consistent API with other renderers
 	override get zoom(): number {
@@ -26,15 +52,32 @@ export class ImageRenderer extends BaseRenderer {
 		super(container, options);
 
 		this.imageElement = null;
+		this.canvasElement = null;
+		this.canvasContext = null;
 		this.imageWrapper = null;
 		this.originalDimensions = { width: 0, height: 0 };
 		this.containerDimensions = { width: 0, height: 0 };
 		this.panState = { x: 0, y: 0 };
 		this.isDragging = false;
 		this.dragStart = { x: 0, y: 0 };
-		this.fitMode = "fit-width"; // 'fit-width', 'fit-height', 'fit-page', 'original'
+		this.fitMode = "fit-width";
 		this.resizeObserver = null;
 		this.objectUrl = null;
+		this.filters = {
+			brightness: 100,
+			contrast: 100,
+			saturation: 100,
+			hue: 0,
+			blur: 0,
+			sepia: 0,
+			grayscale: 0
+		};
+		this.cropArea = null;
+		this.isCropping = false;
+		this.cropOverlay = null;
+		this.originalImageData = null;
+		this.isFiltered = false;
+		this.cropStartPoint = null;
 
 		this.totalPages = 1;
 		this.currentPage = 1;
@@ -65,6 +108,21 @@ export class ImageRenderer extends BaseRenderer {
       background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
     `;
 
+		// Create canvas for advanced image operations
+		this.canvasElement = document.createElement("canvas");
+		this.canvasElement.className = "buka-image-canvas";
+		this.canvasElement.style.cssText = `
+      max-width: none;
+      max-height: none;
+      position: absolute;
+      transition: transform 0.2s ease;
+      user-select: none;
+      pointer-events: none;
+      display: none;
+    `;
+		this.canvasContext = this.canvasElement.getContext("2d");
+
+		// Create image element for basic display
 		this.imageElement = document.createElement("img");
 		this.imageElement.className = "buka-image-element";
 		this.imageElement.style.cssText = `
@@ -76,7 +134,21 @@ export class ImageRenderer extends BaseRenderer {
       pointer-events: none;
     `;
 
+		// Create crop overlay
+		this.cropOverlay = document.createElement("div");
+		this.cropOverlay.className = "buka-crop-overlay";
+		this.cropOverlay.style.cssText = `
+      position: absolute;
+      border: 2px dashed #007bff;
+      background: rgba(0, 123, 255, 0.1);
+      display: none;
+      pointer-events: none;
+      z-index: 10;
+    `;
+
+		this.imageWrapper.appendChild(this.canvasElement);
 		this.imageWrapper.appendChild(this.imageElement);
+		this.imageWrapper.appendChild(this.cropOverlay);
 		this.container.appendChild(this.imageWrapper);
 	}
 
@@ -108,6 +180,9 @@ export class ImageRenderer extends BaseRenderer {
 		this.imageWrapper?.addEventListener("dblclick", () => {
 			this.resetView();
 		});
+
+		// Keyboard shortcuts for image operations
+		document.addEventListener("keydown", this.handleKeyDown.bind(this));
 	}
 
 	async load(source: string | File | Blob): Promise<void> {
@@ -181,12 +256,13 @@ export class ImageRenderer extends BaseRenderer {
 	}
 
 	updateImageTransform() {
-		if (!this.imageElement) return;
+		const activeElement = this.isFiltered ? this.canvasElement : this.imageElement;
+		if (!activeElement) return;
 
 		const scaleX = this.zoomFactor;
 		const scaleY = this.zoomFactor;
 
-		this.imageElement.style.transform = `
+		activeElement.style.transform = `
       translate(${this.panState.x}px, ${this.panState.y}px) 
       scale(${scaleX}, ${scaleY})
     `;
@@ -228,18 +304,45 @@ export class ImageRenderer extends BaseRenderer {
 	handleMouseDown(event: MouseEvent): void {
 		if (event.button === 0) {
 			// Left mouse button
-			this.isDragging = true;
-			this.dragStart = {
-				x: event.clientX - this.panState.x,
-				y: event.clientY - this.panState.y
-			};
-			if (this.imageWrapper) this.imageWrapper.style.cursor = "grabbing";
+			if (this.isCropping) {
+				// Start crop selection
+				const rect = this.imageWrapper?.getBoundingClientRect();
+				if (rect) {
+					this.cropStartPoint = {
+						x: event.clientX - rect.left,
+						y: event.clientY - rect.top
+					};
+				}
+			} else {
+				// Normal pan behavior
+				this.isDragging = true;
+				this.dragStart = {
+					x: event.clientX - this.panState.x,
+					y: event.clientY - this.panState.y
+				};
+				if (this.imageWrapper) this.imageWrapper.style.cursor = "grabbing";
+			}
 			event.preventDefault();
 		}
 	}
 
 	handleMouseMove(event: MouseEvent): void {
-		if (this.isDragging) {
+		if (this.isCropping && this.cropStartPoint) {
+			// Update crop overlay
+			const rect = this.imageWrapper?.getBoundingClientRect();
+			if (rect) {
+				const currentX = event.clientX - rect.left;
+				const currentY = event.clientY - rect.top;
+				this.updateCropOverlay(
+					this.cropStartPoint.x,
+					this.cropStartPoint.y,
+					currentX,
+					currentY
+				);
+			}
+			event.preventDefault();
+		} else if (this.isDragging) {
+			// Normal pan behavior
 			this.panState.x = event.clientX - this.dragStart.x;
 			this.panState.y = event.clientY - this.dragStart.y;
 			this.updateImageTransform();
@@ -248,7 +351,11 @@ export class ImageRenderer extends BaseRenderer {
 	}
 
 	handleMouseUp(_event: MouseEvent): void {
-		if (this.isDragging) {
+		if (this.isCropping && this.cropStartPoint) {
+			// Finish crop selection
+			this.cropStartPoint = null;
+		} else if (this.isDragging) {
+			// Finish pan
 			this.isDragging = false;
 			if (this.imageWrapper) this.imageWrapper.style.cursor = "grab";
 		}
@@ -373,8 +480,73 @@ export class ImageRenderer extends BaseRenderer {
 			pan: { ...this.panState },
 			fitMode: this.fitMode,
 			dimensions: { ...this.originalDimensions },
-			containerSize: { ...this.containerDimensions }
+			containerSize: { ...this.containerDimensions },
+			filters: { ...this.filters },
+			cropArea: this.cropArea ? { ...this.cropArea } : null,
+			isCropping: this.isCropping,
+			isFiltered: this.isFiltered
 		};
+	}
+
+	// Convenience methods for common operations
+	brighten(amount: number = 10): void {
+		this.setFilter("brightness", Math.min(200, this.filters.brightness + amount));
+		this.applyFilters();
+	}
+
+	darken(amount: number = 10): void {
+		this.setFilter("brightness", Math.max(0, this.filters.brightness - amount));
+		this.applyFilters();
+	}
+
+	increaseContrast(amount: number = 10): void {
+		this.setFilter("contrast", Math.min(200, this.filters.contrast + amount));
+		this.applyFilters();
+	}
+
+	decreaseContrast(amount: number = 10): void {
+		this.setFilter("contrast", Math.max(0, this.filters.contrast - amount));
+		this.applyFilters();
+	}
+
+	saturate(amount: number = 10): void {
+		this.setFilter("saturation", Math.min(200, this.filters.saturation + amount));
+		this.applyFilters();
+	}
+
+	desaturate(amount: number = 10): void {
+		this.setFilter("saturation", Math.max(0, this.filters.saturation - amount));
+		this.applyFilters();
+	}
+
+	rotateHue(degrees: number = 30): void {
+		this.setFilter("hue", (this.filters.hue + degrees) % 360);
+		this.applyFilters();
+	}
+
+	addBlur(amount: number = 1): void {
+		this.setFilter("blur", Math.min(20, this.filters.blur + amount));
+		this.applyFilters();
+	}
+
+	toGrayscale(): void {
+		this.setFilter("grayscale", 100);
+		this.applyFilters();
+	}
+
+	toSepia(): void {
+		this.setFilter("sepia", 100);
+		this.applyFilters();
+	}
+
+	// Get filter state for external controls
+	getFilters(): ImageFilterState {
+		return { ...this.filters };
+	}
+
+	// Get crop state for external controls
+	getCropArea(): CropArea | null {
+		return this.cropArea ? { ...this.cropArea } : null;
 	}
 
 	fitToWidth() {
@@ -393,6 +565,232 @@ export class ImageRenderer extends BaseRenderer {
 		this.setFitMode("original");
 	}
 
+	// Image Cropping Methods
+	startCropping(): void {
+		this.isCropping = true;
+		this.cropArea = null;
+		if (this.imageWrapper) {
+			this.imageWrapper.style.cursor = "crosshair";
+		}
+		if (this.cropOverlay) {
+			this.cropOverlay.style.display = "block";
+		}
+	}
+
+	stopCropping(): void {
+		this.isCropping = false;
+		if (this.imageWrapper) {
+			this.imageWrapper.style.cursor = "grab";
+		}
+		if (this.cropOverlay) {
+			this.cropOverlay.style.display = "none";
+		}
+		this.cropArea = null;
+		this.cropStartPoint = null;
+	}
+
+	applyCrop(): void {
+		if (!this.cropArea || !this.canvasElement || !this.canvasContext || !this.imageElement) {
+			return;
+		}
+
+		const canvas = this.canvasElement;
+		const ctx = this.canvasContext;
+
+		// Calculate actual crop coordinates relative to original image
+		const scaleX = this.originalDimensions.width / (this.imageElement.width * this.zoomFactor);
+		const scaleY =
+			this.originalDimensions.height / (this.imageElement.height * this.zoomFactor);
+
+		const cropX = this.cropArea.x * scaleX;
+		const cropY = this.cropArea.y * scaleY;
+		const cropWidth = this.cropArea.width * scaleX;
+		const cropHeight = this.cropArea.height * scaleY;
+
+		// Resize canvas to crop dimensions
+		canvas.width = cropWidth;
+		canvas.height = cropHeight;
+
+		// Draw cropped portion
+		ctx.drawImage(
+			this.imageElement,
+			cropX,
+			cropY,
+			cropWidth,
+			cropHeight,
+			0,
+			0,
+			cropWidth,
+			cropHeight
+		);
+
+		// Update dimensions and switch to canvas display
+		this.originalDimensions = { width: cropWidth, height: cropHeight };
+		this.imageElement.style.display = "none";
+		canvas.style.display = "block";
+		this.isFiltered = true;
+
+		this.stopCropping();
+		this.applyFitMode();
+	}
+
+	updateCropOverlay(startX: number, startY: number, currentX: number, currentY: number): void {
+		if (!this.cropOverlay) return;
+
+		const x = Math.min(startX, currentX);
+		const y = Math.min(startY, currentY);
+		const width = Math.abs(currentX - startX);
+		const height = Math.abs(currentY - startY);
+
+		this.cropOverlay.style.left = `${x}px`;
+		this.cropOverlay.style.top = `${y}px`;
+		this.cropOverlay.style.width = `${width}px`;
+		this.cropOverlay.style.height = `${height}px`;
+
+		this.cropArea = { x, y, width, height };
+	}
+
+	// Image Filter Methods
+	applyFilters(): void {
+		if (!this.canvasElement || !this.canvasContext || !this.imageElement) {
+			return;
+		}
+
+		const canvas = this.canvasElement;
+		const ctx = this.canvasContext;
+
+		// Set canvas size to match image
+		canvas.width = this.originalDimensions.width;
+		canvas.height = this.originalDimensions.height;
+
+		// Apply CSS filters to context
+		const filterString = this.buildFilterString();
+		ctx.filter = filterString;
+
+		// Draw image with filters
+		ctx.drawImage(this.imageElement, 0, 0);
+
+		// Switch to canvas display
+		this.imageElement.style.display = "none";
+		canvas.style.display = "block";
+		this.isFiltered = true;
+
+		this.updateImageTransform();
+	}
+
+	buildFilterString(): string {
+		const filters = [];
+
+		if (this.filters.brightness !== 100) {
+			filters.push(`brightness(${this.filters.brightness}%)`);
+		}
+		if (this.filters.contrast !== 100) {
+			filters.push(`contrast(${this.filters.contrast}%)`);
+		}
+		if (this.filters.saturation !== 100) {
+			filters.push(`saturate(${this.filters.saturation}%)`);
+		}
+		if (this.filters.hue !== 0) {
+			filters.push(`hue-rotate(${this.filters.hue}deg)`);
+		}
+		if (this.filters.blur > 0) {
+			filters.push(`blur(${this.filters.blur}px)`);
+		}
+		if (this.filters.sepia > 0) {
+			filters.push(`sepia(${this.filters.sepia}%)`);
+		}
+		if (this.filters.grayscale > 0) {
+			filters.push(`grayscale(${this.filters.grayscale}%)`);
+		}
+
+		return filters.length > 0 ? filters.join(" ") : "none";
+	}
+
+	setFilter(filterType: keyof ImageFilterState, value: number): void {
+		this.filters[filterType] = value;
+		if (this.isFiltered) {
+			this.applyFilters();
+		}
+	}
+
+	resetFilters(): void {
+		this.filters = {
+			brightness: 100,
+			contrast: 100,
+			saturation: 100,
+			hue: 0,
+			blur: 0,
+			sepia: 0,
+			grayscale: 0
+		};
+
+		if (this.isFiltered) {
+			this.applyFilters();
+		}
+	}
+
+	resetImage(): void {
+		if (this.imageElement && this.canvasElement) {
+			this.imageElement.style.display = "block";
+			this.canvasElement.style.display = "none";
+			this.isFiltered = false;
+		}
+		this.resetFilters();
+		this.stopCropping();
+	}
+
+	// Export cropped/filtered image
+	exportImage(format: "png" | "jpeg" | "webp" = "png", quality = 0.92): string | null {
+		// const activeElement = this.isFiltered ? this.canvasElement : this.imageElement;
+
+		if (this.isFiltered && this.canvasElement) {
+			return this.canvasElement.toDataURL(`image/${format}`, quality);
+		} else if (this.imageElement) {
+			// Create temporary canvas for export
+			const tempCanvas = document.createElement("canvas");
+			const tempCtx = tempCanvas.getContext("2d");
+
+			if (!tempCtx) return null;
+
+			tempCanvas.width = this.originalDimensions.width;
+			tempCanvas.height = this.originalDimensions.height;
+			tempCtx.drawImage(this.imageElement, 0, 0);
+
+			return tempCanvas.toDataURL(`image/${format}`, quality);
+		}
+
+		return null;
+	}
+
+	// Keyboard handler for shortcuts
+	handleKeyDown(event: KeyboardEvent): void {
+		if (!this.container.contains(document.activeElement)) return;
+
+		switch (event.key) {
+			case "c":
+				if (event.ctrlKey || event.metaKey) {
+					event.preventDefault();
+					if (this.isCropping) {
+						this.applyCrop();
+					} else {
+						this.startCropping();
+					}
+				}
+				break;
+			case "Escape":
+				if (this.isCropping) {
+					this.stopCropping();
+				}
+				break;
+			case "r":
+				if (event.ctrlKey || event.metaKey) {
+					event.preventDefault();
+					this.resetImage();
+				}
+				break;
+		}
+	}
+
 	override destroy(): void {
 		super.destroy();
 
@@ -406,10 +804,15 @@ export class ImageRenderer extends BaseRenderer {
 
 		document.removeEventListener("mousemove", this.handleMouseMove);
 		document.removeEventListener("mouseup", this.handleMouseUp);
+		document.removeEventListener("keydown", this.handleKeyDown);
 
 		this.imageElement = null;
+		this.canvasElement = null;
+		this.canvasContext = null;
 		this.imageWrapper = null;
+		this.cropOverlay = null;
 		this.isDragging = false;
+		this.isCropping = false;
 	}
 }
 

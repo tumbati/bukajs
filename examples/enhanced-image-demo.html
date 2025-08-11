@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BukaJS Enhanced Image Renderer Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 20px;
+            background: #fafafa;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-weight: 500;
+            color: #555;
+            min-width: 80px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background: #6c757d;
+        }
+
+        button.secondary:hover {
+            background: #545b62;
+        }
+
+        button.danger {
+            background: #dc3545;
+        }
+
+        button.danger:hover {
+            background: #c82333;
+        }
+
+        input[type="range"] {
+            width: 120px;
+        }
+
+        input[type="file"] {
+            margin-bottom: 10px;
+        }
+
+        .viewer-container {
+            height: 600px;
+            background: #f8f9fa;
+        }
+
+        .instructions {
+            padding: 15px 20px;
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            margin-bottom: 20px;
+        }
+
+        .instructions h3 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+
+        .instructions ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="instructions">
+            <h3>Enhanced Image Renderer Features:</h3>
+            <ul>
+                <li><strong>Cropping:</strong> Click "Start Crop" then drag on image to select area, click "Apply Crop" to crop</li>
+                <li><strong>Filters:</strong> Use sliders to adjust brightness, contrast, saturation, etc.</li>
+                <li><strong>Keyboard Shortcuts:</strong> Ctrl+C (crop), Ctrl+R (reset), Escape (cancel crop)</li>
+                <li><strong>Export:</strong> Download your edited image in PNG, JPEG, or WebP format</li>
+            </ul>
+        </div>
+
+        <div class="toolbar">
+            <div class="control-group">
+                <input type="file" id="fileInput" accept="image/*" />
+            </div>
+
+            <!-- Crop Controls -->
+            <div class="control-group">
+                <button id="startCrop">Start Crop</button>
+                <button id="applyCrop" disabled>Apply Crop</button>
+                <button id="cancelCrop" disabled>Cancel Crop</button>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="control-group">
+                <label for="brightness">Brightness:</label>
+                <input type="range" id="brightness" min="0" max="200" value="100" />
+                <span id="brightnessValue">100%</span>
+            </div>
+
+            <div class="control-group">
+                <label for="contrast">Contrast:</label>
+                <input type="range" id="contrast" min="0" max="200" value="100" />
+                <span id="contrastValue">100%</span>
+            </div>
+
+            <div class="control-group">
+                <label for="saturation">Saturation:</label>
+                <input type="range" id="saturation" min="0" max="200" value="100" />
+                <span id="saturationValue">100%</span>
+            </div>
+
+            <div class="control-group">
+                <label for="hue">Hue:</label>
+                <input type="range" id="hue" min="0" max="360" value="0" />
+                <span id="hueValue">0°</span>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="control-group">
+                <button id="grayscale" class="secondary">Grayscale</button>
+                <button id="sepia" class="secondary">Sepia</button>
+                <button id="resetFilters" class="secondary">Reset Filters</button>
+                <button id="resetAll" class="danger">Reset All</button>
+            </div>
+
+            <!-- Export -->
+            <div class="control-group">
+                <button id="exportPng">Export PNG</button>
+                <button id="exportJpeg">Export JPEG</button>
+                <button id="exportWebp">Export WebP</button>
+            </div>
+        </div>
+
+        <div class="viewer-container" id="viewerContainer">
+            <div style="text-align: center; padding: 100px; color: #666;">
+                Select an image file to begin editing
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { ImageRenderer } from '../dist/renderers/image.esm.js';
+
+        let renderer = null;
+
+        // Initialize file input
+        const fileInput = document.getElementById('fileInput');
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                await loadImage(file);
+            }
+        });
+
+        async function loadImage(file) {
+            const container = document.getElementById('viewerContainer');
+            container.innerHTML = '';
+
+            // Destroy existing renderer
+            if (renderer) {
+                renderer.destroy();
+            }
+
+            // Create new renderer
+            renderer = new ImageRenderer(container);
+            
+            // Load the image
+            try {
+                await renderer.load(file);
+                setupControls();
+                console.log('Image loaded successfully');
+            } catch (error) {
+                console.error('Failed to load image:', error);
+                container.innerHTML = '<div style="text-align: center; padding: 100px; color: red;">Failed to load image</div>';
+            }
+        }
+
+        function setupControls() {
+            if (!renderer) return;
+
+            // Crop controls
+            const startCropBtn = document.getElementById('startCrop');
+            const applyCropBtn = document.getElementById('applyCrop');
+            const cancelCropBtn = document.getElementById('cancelCrop');
+
+            startCropBtn.addEventListener('click', () => {
+                renderer.startCropping();
+                startCropBtn.disabled = true;
+                applyCropBtn.disabled = false;
+                cancelCropBtn.disabled = false;
+            });
+
+            applyCropBtn.addEventListener('click', () => {
+                renderer.applyCrop();
+                resetCropButtons();
+            });
+
+            cancelCropBtn.addEventListener('click', () => {
+                renderer.stopCropping();
+                resetCropButtons();
+            });
+
+            function resetCropButtons() {
+                startCropBtn.disabled = false;
+                applyCropBtn.disabled = true;
+                cancelCropBtn.disabled = true;
+            }
+
+            // Filter controls
+            const setupSlider = (id, filterType) => {
+                const slider = document.getElementById(id);
+                const valueSpan = document.getElementById(id + 'Value');
+                
+                slider.addEventListener('input', (e) => {
+                    const value = parseInt(e.target.value);
+                    renderer.setFilter(filterType, value);
+                    renderer.applyFilters();
+                    
+                    const unit = filterType === 'hue' ? '°' : '%';
+                    valueSpan.textContent = value + unit;
+                });
+            };
+
+            setupSlider('brightness', 'brightness');
+            setupSlider('contrast', 'contrast');  
+            setupSlider('saturation', 'saturation');
+            setupSlider('hue', 'hue');
+
+            // Quick action buttons
+            document.getElementById('grayscale').addEventListener('click', () => {
+                renderer.toGrayscale();
+            });
+
+            document.getElementById('sepia').addEventListener('click', () => {
+                renderer.toSepia();
+            });
+
+            document.getElementById('resetFilters').addEventListener('click', () => {
+                renderer.resetFilters();
+                resetSliders();
+            });
+
+            document.getElementById('resetAll').addEventListener('click', () => {
+                renderer.resetImage();
+                resetSliders();
+                resetCropButtons();
+            });
+
+            // Export buttons
+            document.getElementById('exportPng').addEventListener('click', () => {
+                exportImage('png');
+            });
+
+            document.getElementById('exportJpeg').addEventListener('click', () => {
+                exportImage('jpeg');
+            });
+
+            document.getElementById('exportWebp').addEventListener('click', () => {
+                exportImage('webp');
+            });
+        }
+
+        function resetSliders() {
+            document.getElementById('brightness').value = 100;
+            document.getElementById('brightnessValue').textContent = '100%';
+            document.getElementById('contrast').value = 100;
+            document.getElementById('contrastValue').textContent = '100%';
+            document.getElementById('saturation').value = 100;
+            document.getElementById('saturationValue').textContent = '100%';
+            document.getElementById('hue').value = 0;
+            document.getElementById('hueValue').textContent = '0°';
+        }
+
+        function exportImage(format) {
+            if (!renderer) return;
+            
+            const dataUrl = renderer.exportImage(format, 0.92);
+            if (dataUrl) {
+                const link = document.createElement('a');
+                link.download = `edited-image.${format}`;
+                link.href = dataUrl;
+                link.click();
+            }
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (!renderer) return;
+
+            if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+                e.preventDefault();
+                if (renderer.isCropping) {
+                    renderer.applyCrop();
+                } else {
+                    renderer.startCropping();
+                }
+            } else if (e.key === 'Escape' && renderer.isCropping) {
+                renderer.stopCropping();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                e.preventDefault();
+                renderer.resetImage();
+                resetSliders();
+            }
+        });
+    </script>
+</body>
+</html>
