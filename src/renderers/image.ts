@@ -108,7 +108,6 @@ export class ImageRenderer extends BaseRenderer {
       background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
     `;
 
-		// Create canvas for advanced image operations
 		this.canvasElement = document.createElement("canvas");
 		this.canvasElement.className = "buka-image-canvas";
 		this.canvasElement.style.cssText = `
@@ -122,7 +121,6 @@ export class ImageRenderer extends BaseRenderer {
     `;
 		this.canvasContext = this.canvasElement.getContext("2d");
 
-		// Create image element for basic display
 		this.imageElement = document.createElement("img");
 		this.imageElement.className = "buka-image-element";
 		this.imageElement.style.cssText = `
@@ -134,7 +132,6 @@ export class ImageRenderer extends BaseRenderer {
       pointer-events: none;
     `;
 
-		// Create crop overlay
 		this.cropOverlay = document.createElement("div");
 		this.cropOverlay.className = "buka-crop-overlay";
 		this.cropOverlay.style.cssText = `
@@ -181,7 +178,6 @@ export class ImageRenderer extends BaseRenderer {
 			this.resetView();
 		});
 
-		// Keyboard shortcuts for image operations
 		document.addEventListener("keydown", this.handleKeyDown.bind(this));
 	}
 
@@ -303,9 +299,7 @@ export class ImageRenderer extends BaseRenderer {
 
 	handleMouseDown(event: MouseEvent): void {
 		if (event.button === 0) {
-			// Left mouse button
 			if (this.isCropping) {
-				// Start crop selection
 				const rect = this.imageWrapper?.getBoundingClientRect();
 				if (rect) {
 					this.cropStartPoint = {
@@ -314,7 +308,6 @@ export class ImageRenderer extends BaseRenderer {
 					};
 				}
 			} else {
-				// Normal pan behavior
 				this.isDragging = true;
 				this.dragStart = {
 					x: event.clientX - this.panState.x,
@@ -328,7 +321,6 @@ export class ImageRenderer extends BaseRenderer {
 
 	handleMouseMove(event: MouseEvent): void {
 		if (this.isCropping && this.cropStartPoint) {
-			// Update crop overlay
 			const rect = this.imageWrapper?.getBoundingClientRect();
 			if (rect) {
 				const currentX = event.clientX - rect.left;
@@ -342,7 +334,6 @@ export class ImageRenderer extends BaseRenderer {
 			}
 			event.preventDefault();
 		} else if (this.isDragging) {
-			// Normal pan behavior
 			this.panState.x = event.clientX - this.dragStart.x;
 			this.panState.y = event.clientY - this.dragStart.y;
 			this.updateImageTransform();
@@ -352,10 +343,8 @@ export class ImageRenderer extends BaseRenderer {
 
 	handleMouseUp(_event: MouseEvent): void {
 		if (this.isCropping && this.cropStartPoint) {
-			// Finish crop selection
 			this.cropStartPoint = null;
 		} else if (this.isDragging) {
-			// Finish pan
 			this.isDragging = false;
 			if (this.imageWrapper) this.imageWrapper.style.cursor = "grab";
 		}
@@ -488,7 +477,6 @@ export class ImageRenderer extends BaseRenderer {
 		};
 	}
 
-	// Convenience methods for common operations
 	brighten(amount: number = 10): void {
 		this.setFilter("brightness", Math.min(200, this.filters.brightness + amount));
 		this.applyFilters();
@@ -539,12 +527,10 @@ export class ImageRenderer extends BaseRenderer {
 		this.applyFilters();
 	}
 
-	// Get filter state for external controls
 	getFilters(): ImageFilterState {
 		return { ...this.filters };
 	}
 
-	// Get crop state for external controls
 	getCropArea(): CropArea | null {
 		return this.cropArea ? { ...this.cropArea } : null;
 	}
@@ -565,7 +551,6 @@ export class ImageRenderer extends BaseRenderer {
 		this.setFitMode("original");
 	}
 
-	// Image Cropping Methods
 	startCropping(): void {
 		this.isCropping = true;
 		this.cropArea = null;
@@ -597,7 +582,6 @@ export class ImageRenderer extends BaseRenderer {
 		const canvas = this.canvasElement;
 		const ctx = this.canvasContext;
 
-		// Calculate actual crop coordinates relative to original image
 		const scaleX = this.originalDimensions.width / (this.imageElement.width * this.zoomFactor);
 		const scaleY =
 			this.originalDimensions.height / (this.imageElement.height * this.zoomFactor);
@@ -607,11 +591,9 @@ export class ImageRenderer extends BaseRenderer {
 		const cropWidth = this.cropArea.width * scaleX;
 		const cropHeight = this.cropArea.height * scaleY;
 
-		// Resize canvas to crop dimensions
 		canvas.width = cropWidth;
 		canvas.height = cropHeight;
 
-		// Draw cropped portion
 		ctx.drawImage(
 			this.imageElement,
 			cropX,
@@ -624,7 +606,6 @@ export class ImageRenderer extends BaseRenderer {
 			cropHeight
 		);
 
-		// Update dimensions and switch to canvas display
 		this.originalDimensions = { width: cropWidth, height: cropHeight };
 		this.imageElement.style.display = "none";
 		canvas.style.display = "block";
@@ -650,7 +631,6 @@ export class ImageRenderer extends BaseRenderer {
 		this.cropArea = { x, y, width, height };
 	}
 
-	// Image Filter Methods
 	applyFilters(): void {
 		if (!this.canvasElement || !this.canvasContext || !this.imageElement) {
 			return;
@@ -659,18 +639,14 @@ export class ImageRenderer extends BaseRenderer {
 		const canvas = this.canvasElement;
 		const ctx = this.canvasContext;
 
-		// Set canvas size to match image
 		canvas.width = this.originalDimensions.width;
 		canvas.height = this.originalDimensions.height;
 
-		// Apply CSS filters to context
 		const filterString = this.buildFilterString();
 		ctx.filter = filterString;
 
-		// Draw image with filters
 		ctx.drawImage(this.imageElement, 0, 0);
 
-		// Switch to canvas display
 		this.imageElement.style.display = "none";
 		canvas.style.display = "block";
 		this.isFiltered = true;
@@ -739,14 +715,12 @@ export class ImageRenderer extends BaseRenderer {
 		this.stopCropping();
 	}
 
-	// Export cropped/filtered image
 	exportImage(format: "png" | "jpeg" | "webp" = "png", quality = 0.92): string | null {
 		// const activeElement = this.isFiltered ? this.canvasElement : this.imageElement;
 
 		if (this.isFiltered && this.canvasElement) {
 			return this.canvasElement.toDataURL(`image/${format}`, quality);
 		} else if (this.imageElement) {
-			// Create temporary canvas for export
 			const tempCanvas = document.createElement("canvas");
 			const tempCtx = tempCanvas.getContext("2d");
 
@@ -762,7 +736,6 @@ export class ImageRenderer extends BaseRenderer {
 		return null;
 	}
 
-	// Keyboard handler for shortcuts
 	handleKeyDown(event: KeyboardEvent): void {
 		if (!this.container.contains(document.activeElement)) return;
 
