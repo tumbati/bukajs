@@ -26,8 +26,8 @@ This project adheres to a code of conduct that we expect all contributors to fol
 
 ### Prerequisites
 
-- **Node.js** (version 16 or higher)
-- **npm** or **yarn**
+- **Node.js** (version 18 or higher)
+- **npm**
 - **Git**
 - Modern browser for testing (Chrome 88+, Firefox 85+, Safari 14+, Edge 88+)
 
