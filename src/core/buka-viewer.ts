@@ -277,14 +277,21 @@ export class BukaViewer {
 
 	// Event handling methods
 	on(event: string, callback: EventCallback): void {
-		if (!this.eventListeners!.has(event)) {
-			this.eventListeners!.set(event, new Set());
+		if (!this.eventListeners) return;
+
+		if (!this.eventListeners.has(event)) {
+			this.eventListeners.set(event, new Set());
 		}
-		this.eventListeners!.get(event)!.add(callback);
+		const listeners = this.eventListeners.get(event);
+		if (listeners) {
+			listeners.add(callback);
+		}
 	}
 
 	emit(event: string, data: any): void {
-		const listeners = this.eventListeners!.get(event);
+		if (!this.eventListeners) return;
+
+		const listeners = this.eventListeners.get(event);
 		if (listeners) {
 			listeners.forEach((callback) => callback(data));
 		}

@@ -141,8 +141,6 @@ export class DocxRenderer extends BaseRenderer {
 			const mammothModule = await import("mammoth");
 			return mammothModule.default || mammothModule;
 		} catch (error) {
-			console.log("Loading mammoth.js from CDN...");
-
 			const script = document.createElement("script");
 			script.src = "https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js";
 			document.head.appendChild(script);
@@ -166,18 +164,14 @@ export class DocxRenderer extends BaseRenderer {
 
 	async paginateDocument(): Promise<void> {
 		if (!this.documentHtml) return;
-
-		// First, try to find explicit page breaks
 		let pages = this.splitByPageBreaks(this.documentHtml);
 
-		// If no explicit page breaks found, check if document is long enough to split
 		if (pages.length === 1) {
 			const shouldPaginate = this.shouldPaginateDocument(this.documentHtml);
 			if (shouldPaginate) {
-				// Try more conservative splitting strategies
 				pages = this.intelligentSplit(this.documentHtml);
 			}
-			// If still only one page or splitting failed, keep as single page
+
 			if (pages.length <= 1) {
 				pages = [this.documentHtml];
 			}
@@ -186,7 +180,6 @@ export class DocxRenderer extends BaseRenderer {
 		this.totalPages = Math.max(1, pages.length);
 		this.pageElements = [];
 
-		// Create page elements
 		for (let i = 0; i < pages.length; i++) {
 			const pageElement = this.createPageElement(pages[i] || "", i + 1);
 			this.pageElements.push(pageElement);
@@ -211,7 +204,6 @@ export class DocxRenderer extends BaseRenderer {
 		let content = html;
 		let hasPageBreaks = false;
 
-		// Replace page break patterns with a special marker
 		const PAGE_BREAK_MARKER = "|||PAGE_BREAK|||";
 		pageBreakPatterns.forEach((pattern) => {
 			if (pattern.test(content)) {
@@ -220,20 +212,16 @@ export class DocxRenderer extends BaseRenderer {
 			}
 		});
 
-		// Only split if we found actual page breaks
 		if (!hasPageBreaks) {
 			return [html];
 		}
 
-		// Split by the marker and clean up
 		const pages = content
 			.split(PAGE_BREAK_MARKER)
 			.map((page) => page.trim())
-			.filter((page) => page.length > 50); // Filter out very small fragments
+			.filter((page) => page.length > 50);
 
-		// Validate the split makes sense
 		if (pages.length > 10) {
-			// Too many pages, probably false positives
 			return [html];
 		}
 
@@ -241,17 +229,13 @@ export class DocxRenderer extends BaseRenderer {
 	}
 
 	shouldPaginateDocument(html: string): boolean {
-		// More conservative check - only paginate if document is genuinely long
 		const text = this.extractText(html);
 		const wordCount = text.split(/\s+/).filter((word) => word.length > 0).length;
 
-		// Only paginate if document has more than ~600 words (typical 1.5 pages)
-		// This prevents short documents from being artificially split
 		return wordCount > 600;
 	}
 
 	intelligentSplit(html: string): string[] {
-		// Try multiple strategies, pick the most reasonable one
 		const strategies = [this.splitByMajorSections(html), this.splitByContentLength(html)];
 
 		// Find the best strategy (not too many, not too few pages)
@@ -706,7 +690,9 @@ export class DocxRenderer extends BaseRenderer {
 				if (text && regex.test(text)) {
 					const highlightedText = text.replace(
 						regex,
-						'<mark class="buka-search-highlight">$1</mark>'
+						`
+							<mark class="buka-search-highlight">$1</mark>
+						`
 					);
 
 					const wrapper = document.createElement("div");
@@ -728,7 +714,7 @@ export class DocxRenderer extends BaseRenderer {
 		const highlights = this.documentContainer.querySelectorAll(".buka-search-highlight");
 		highlights.forEach((highlight: Element) => {
 			const text = highlight.textContent;
-			highlight.parentNode?.replaceChild(document.createTextNode(text), highlight);
+			highlight.parentNode?.replaceChild(document.createTextNode(text || ""), highlight);
 		});
 
 		// Normalize all page elements

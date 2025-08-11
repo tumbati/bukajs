@@ -100,7 +100,7 @@ class StyleManager {
 	/**
 	 * Load stylesheet content (placeholder for actual implementation)
 	 */
-	async loadStylesheet(filename: string): Promise<string> {
+	async loadStylesheet(_filename: string): Promise<string> {
 		return "";
 	}
 

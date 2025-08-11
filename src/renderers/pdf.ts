@@ -315,9 +315,6 @@ export class PDFRenderer extends BaseRenderer {
 	handleScroll(): void {
 		if (!this.scrollContainer) return;
 
-		const scrollTop = this.scrollContainer.scrollTop;
-		const containerHeight = this.scrollContainer.clientHeight;
-
 		// Find which page is currently most visible
 		let currentVisiblePage = 1;
 		let maxVisibleArea = 0;
@@ -400,7 +397,8 @@ export class PDFRenderer extends BaseRenderer {
 	}
 
 	updateZoomDisplay(): void {
-		const zoomLevelEl = this.container.querySelector("#zoomLevel");
+		// Update zoom level display if needed
+		// const zoomLevelEl = this.container.querySelector("#zoomLevel");
 		// if (this.currentRenderer && zoomLevelEl) {
 		// 	zoomLevelEl.textContent = `${Math.round(this.currentRenderer.zoom * 100)}%`;
 		// }
@@ -445,7 +443,8 @@ export class PDFRenderer extends BaseRenderer {
 		this.searchResults = [];
 		this.clearSearchHighlights();
 
-		const searchRegex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+		// Create search regex for highlighting later
+		// const searchRegex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
 
 		for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
 			try {
@@ -453,7 +452,7 @@ export class PDFRenderer extends BaseRenderer {
 				const textContent = await page.getTextContent();
 
 				// Search through individual text items for more precise highlighting
-				textContent.items.forEach((item: any, itemIndex: number) => {
+				textContent.items.forEach((item: any, _itemIndex: number) => {
 					let match: RegExpExecArray | null;
 					const text = item.str;
 					const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
@@ -506,7 +505,7 @@ export class PDFRenderer extends BaseRenderer {
 	async highlightPageSearchResults(
 		pageNum: number,
 		results: SearchResult[],
-		query: string
+		_query: string
 	): Promise<void> {
 		const pageElement = this.pageElements[pageNum - 1];
 		if (!pageElement) return;
@@ -514,8 +513,8 @@ export class PDFRenderer extends BaseRenderer {
 		const textLayer = pageElement.querySelector(".buka-pdf-page-text-layer");
 		if (!textLayer) return;
 
-		// Find all text spans in this page's text layer
-		const textSpans = textLayer.querySelectorAll("span[data-text-index]");
+		// Text spans available for highlighting if needed
+		// const textSpans = textLayer.querySelectorAll("span[data-text-index]");
 
 		results.forEach((result: any) => {
 			if (result.textItem && result.itemIndex !== undefined) {

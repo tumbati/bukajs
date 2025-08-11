@@ -119,7 +119,7 @@ export declare abstract class BaseRenderer {
 	protected options: ViewerOptions;
 	public currentPage: number;
 	public totalPages: number;
-	public zoom: number;
+	public zoomFactor: number;
 	public annotations: Map<string, Annotation>;
 	public eventListeners: Map<string, Set<EventCallback>>;
 

@@ -14,7 +14,7 @@ vi.mock("pdfjs-dist", () => ({
 						height: 150 * scale,
 						scale
 					})),
-					render: vi.fn(({ canvasContext, viewport }) => ({
+					render: vi.fn(({ canvasContext: _canvasContext, viewport: _viewport }) => ({
 						promise: Promise.resolve()
 					})),
 					getTextContent: vi.fn(() =>

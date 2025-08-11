@@ -307,8 +307,9 @@ export class XlsxRenderer extends BaseRenderer {
 
 	async render(): Promise<void> {
 		if (!this.currentSheetData.length) {
-			this.gridTable.innerHTML =
-				'<tr><td style="padding: 20px; text-align: center; color: #666;">No data available</td></tr>';
+			this.gridTable.innerHTML = `
+					<tr><td style="padding: 20px; text-align: center; color: #666;">No data available</td></tr>
+				`;
 			return;
 		}
 
@@ -441,7 +442,7 @@ export class XlsxRenderer extends BaseRenderer {
       `;
 			row.appendChild(rowHeader);
 
-			rowData.forEach((cellData, colIndex) => {
+			rowData.forEach((cellData, _colIndex) => {
 				const cell = document.createElement("td");
 				cell.textContent = cellData.formatted || "";
 				cell.style.cssText = `
@@ -547,8 +548,8 @@ export class XlsxRenderer extends BaseRenderer {
 
 		const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
 
-		this.currentSheetData.forEach((rowData, rowIndex) => {
-			rowData.forEach((cellData, colIndex) => {
+		this.currentSheetData.forEach((rowData, _rowIndex) => {
+			rowData.forEach((cellData, _colIndex) => {
 				const cellValue = String(cellData.value || "");
 				const matches = cellValue.match(regex);
 
@@ -595,7 +596,7 @@ export class XlsxRenderer extends BaseRenderer {
 		});
 	}
 
-	scrollToSearchResult(index: number): void {
+	scrollToSearchResult(_index: number): void {
 		// Implementation simplified for now
 		// TODO: Add proper scroll to search result functionality
 	}
@@ -625,7 +626,7 @@ export class XlsxRenderer extends BaseRenderer {
 					.map((cell) => {
 						const value = String(cell.value || "");
 						return value.includes(",") || value.includes('"') || value.includes("\n")
-							? `"${value.replace(/"/g, '""')}"`
+							? `"${value.replace(/"/g, '""')}"}`
 							: value;
 					})
 					.join(",")

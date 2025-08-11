@@ -341,12 +341,16 @@ export class PresentationRenderer extends BaseRenderer {
 			"<h2>Agenda</h2><ul><li>Introduction</li><li>Main Content</li><li>Key Points</li><li>Conclusion</li></ul>",
 			"<h2>Key Statistics</h2><p>Here are some important numbers:</p><ul><li>95% user satisfaction</li><li>50% increase in efficiency</li><li>30+ features added</li></ul>",
 			"<h2>Our Approach</h2><p>We follow a systematic methodology that ensures quality and reliability in every step of the process.</p>",
-			'<h2>Benefits</h2><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;"><div><h3>Cost Effective</h3><p>Reduces operational costs by 40%</p></div><div><h3>Time Saving</h3><p>Speeds up processes significantly</p></div></div>',
+			`
+				<h2>Benefits</h2><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;"><div><h3>Cost Effective</h3><p>Reduces operational costs by 40%</p></div><div><h3>Time Saving</h3><p>Speeds up processes significantly</p></div></div>
+			`,
 			"<h2>Case Study</h2><p>Let us examine a real-world example of how our solution made a difference for a major client.</p>",
 			"<h2>Implementation Timeline</h2><div><strong>Phase 1:</strong> Planning (2 weeks)<br><strong>Phase 2:</strong> Development (6 weeks)<br><strong>Phase 3:</strong> Testing (2 weeks)<br><strong>Phase 4:</strong> Deployment (1 week)</div>",
 			"<h2>Results</h2><p>The implementation delivered outstanding results across all key performance indicators.</p>",
 			"<h2>Next Steps</h2><p>Moving forward, we recommend the following actions to maximize the benefits of this solution.</p>",
-			'<h1>Thank You</h1><p>Questions & Discussion</p><div style="margin-top: 40px; font-size: 14px; color: #666;">Contact: info@company.com</div>'
+			`
+				<h1>Thank You</h1><p>Questions & Discussion</p><div style="margin-top: 40px; font-size: 14px; color: #666;">Contact: info@company.com</div>
+			`
 		];
 
 		return (
@@ -610,7 +614,9 @@ export class PresentationRenderer extends BaseRenderer {
 		if (currentSlide) {
 			const highlightedContent = currentSlide.content.replace(
 				regex,
-				'<mark style="background: #ffeb3b; color: #333; padding: 2px 4px; border-radius: 2px;">$1</mark>'
+				`
+					<mark style="background: #ffeb3b; color: #333; padding: 2px 4px; border-radius: 2px;">$1</mark>
+				`
 			);
 			this.slideContent.innerHTML = highlightedContent;
 		}

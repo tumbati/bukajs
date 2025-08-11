@@ -247,7 +247,7 @@ export class ImageRenderer extends BaseRenderer {
 		}
 	}
 
-	handleMouseUp(event: MouseEvent): void {
+	handleMouseUp(_event: MouseEvent): void {
 		if (this.isDragging) {
 			this.isDragging = false;
 			if (this.imageWrapper) this.imageWrapper.style.cursor = "grab";
@@ -280,7 +280,7 @@ export class ImageRenderer extends BaseRenderer {
 		}
 	}
 
-	handleTouchEnd(event: TouchEvent): void {
+	handleTouchEnd(_event: TouchEvent): void {
 		this.isDragging = false;
 	}
 
