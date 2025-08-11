@@ -22,6 +22,19 @@ export interface CropArea {
 	height: number;
 }
 
+export interface CropHandlePosition {
+	x: number;
+	y: number;
+	cursor: string;
+	type: "corner" | "edge";
+	handle: string;
+}
+
+export interface AspectRatioConstraint {
+	ratio: number | null;
+	label: string;
+}
+
 export class ImageRenderer extends BaseRenderer {
 	public imageElement: HTMLImageElement | null;
 	public canvasElement: HTMLCanvasElement | null;
@@ -40,6 +53,12 @@ export class ImageRenderer extends BaseRenderer {
 	public originalImageData: ImageData | null;
 	public isFiltered: boolean;
 	public cropStartPoint: { x: number; y: number } | null;
+	public cropHandles: HTMLElement[];
+	public isDraggingCrop: boolean;
+	public isResizingCrop: boolean;
+	public activeHandle: string | null;
+	public aspectRatio: number | null;
+	public cropDragOffset: { x: number; y: number };
 
 	// Getter for consistent API with other renderers
 	override get zoom(): number {
@@ -78,6 +97,12 @@ export class ImageRenderer extends BaseRenderer {
 		this.originalImageData = null;
 		this.isFiltered = false;
 		this.cropStartPoint = null;
+		this.cropHandles = [];
+		this.isDraggingCrop = false;
+		this.isResizingCrop = false;
+		this.activeHandle = null;
+		this.aspectRatio = null;
+		this.cropDragOffset = { x: 0, y: 0 };
 
 		this.totalPages = 1;
 		this.currentPage = 1;
@@ -139,9 +164,19 @@ export class ImageRenderer extends BaseRenderer {
       border: 2px dashed #007bff;
       background: rgba(0, 123, 255, 0.1);
       display: none;
-      pointer-events: none;
       z-index: 10;
+      cursor: move;
+      pointer-events: auto;
     `;
+
+		// Add crop overlay event listeners for dragging
+		this.cropOverlay.addEventListener("mousedown", (e) => {
+			e.stopPropagation();
+			this.startCropDrag(e);
+		});
+
+		// Create resize handles
+		this.createCropHandles();
 
 		this.imageWrapper.appendChild(this.canvasElement);
 		this.imageWrapper.appendChild(this.imageElement);
@@ -205,7 +240,6 @@ export class ImageRenderer extends BaseRenderer {
 				dimensions: this.originalDimensions
 			});
 		} catch (error) {
-			console.error("Image loading failed:", error);
 			throw new Error(
 				`Failed to load image: ${error instanceof Error ? error.message : "Unknown error"}`
 			);
@@ -300,14 +334,23 @@ export class ImageRenderer extends BaseRenderer {
 	handleMouseDown(event: MouseEvent): void {
 		if (event.button === 0) {
 			if (this.isCropping) {
-				const rect = this.imageWrapper?.getBoundingClientRect();
-				if (rect) {
-					this.cropStartPoint = {
-						x: event.clientX - rect.left,
-						y: event.clientY - rect.top
-					};
+				// Check if clicking on existing crop area
+				const target = event.target as HTMLElement;
+				if (target === this.cropOverlay && this.cropArea) {
+					// Start dragging crop area
+					this.startCropDrag(event);
+				} else if (!target.classList.contains("buka-crop-handle")) {
+					// Start new crop selection
+					const rect = this.imageWrapper?.getBoundingClientRect();
+					if (rect) {
+						this.cropStartPoint = {
+							x: event.clientX - rect.left,
+							y: event.clientY - rect.top
+						};
+					}
 				}
 			} else {
+				// Normal pan behavior
 				this.isDragging = true;
 				this.dragStart = {
 					x: event.clientX - this.panState.x,
@@ -320,7 +363,16 @@ export class ImageRenderer extends BaseRenderer {
 	}
 
 	handleMouseMove(event: MouseEvent): void {
-		if (this.isCropping && this.cropStartPoint) {
+		if (this.isResizingCrop) {
+			// Handle crop resize
+			this.updateCropResize(event);
+			event.preventDefault();
+		} else if (this.isDraggingCrop) {
+			// Handle crop drag
+			this.updateCropDrag(event);
+			event.preventDefault();
+		} else if (this.isCropping && this.cropStartPoint) {
+			// Handle new crop selection
 			const rect = this.imageWrapper?.getBoundingClientRect();
 			if (rect) {
 				const currentX = event.clientX - rect.left;
@@ -334,6 +386,7 @@ export class ImageRenderer extends BaseRenderer {
 			}
 			event.preventDefault();
 		} else if (this.isDragging) {
+			// Normal pan behavior
 			this.panState.x = event.clientX - this.dragStart.x;
 			this.panState.y = event.clientY - this.dragStart.y;
 			this.updateImageTransform();
@@ -342,8 +395,15 @@ export class ImageRenderer extends BaseRenderer {
 	}
 
 	handleMouseUp(_event: MouseEvent): void {
-		if (this.isCropping && this.cropStartPoint) {
+		if (this.isResizingCrop) {
+			this.isResizingCrop = false;
+			this.activeHandle = null;
+		} else if (this.isDraggingCrop) {
+			this.isDraggingCrop = false;
+		} else if (this.isCropping && this.cropStartPoint) {
+			// Finished creating new crop area
 			this.cropStartPoint = null;
+			this.showCropHandles();
 		} else if (this.isDragging) {
 			this.isDragging = false;
 			if (this.imageWrapper) this.imageWrapper.style.cursor = "grab";
@@ -551,6 +611,69 @@ export class ImageRenderer extends BaseRenderer {
 		this.setFitMode("original");
 	}
 
+	createCropHandles(): void {
+		const handlePositions = [
+			{ handle: "nw", cursor: "nw-resize", type: "corner" as const },
+			{ handle: "ne", cursor: "ne-resize", type: "corner" as const },
+			{ handle: "sw", cursor: "sw-resize", type: "corner" as const },
+			{ handle: "se", cursor: "se-resize", type: "corner" as const },
+			{ handle: "n", cursor: "n-resize", type: "edge" as const },
+			{ handle: "s", cursor: "s-resize", type: "edge" as const },
+			{ handle: "e", cursor: "e-resize", type: "edge" as const },
+			{ handle: "w", cursor: "w-resize", type: "edge" as const }
+		];
+
+		handlePositions.forEach(({ handle, cursor }) => {
+			const handleElement = document.createElement("div");
+			handleElement.className = `buka-crop-handle buka-crop-handle-${handle}`;
+			handleElement.dataset.handle = handle;
+			handleElement.style.cssText = `
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background: #007bff;
+        border: 2px solid white;
+        border-radius: 50%;
+        cursor: ${cursor};
+        z-index: 11;
+        display: none;
+      `;
+
+			handleElement.addEventListener("mousedown", (e) => {
+				e.stopPropagation();
+				this.startCropResize(e, handle);
+			});
+
+			this.cropHandles.push(handleElement);
+			this.imageWrapper?.appendChild(handleElement);
+		});
+	}
+
+	updateHandlePositions(): void {
+		if (!this.cropArea || !this.cropOverlay) return;
+
+		const handles = {
+			nw: { x: -5, y: -5 },
+			ne: { x: this.cropArea.width - 5, y: -5 },
+			sw: { x: -5, y: this.cropArea.height - 5 },
+			se: { x: this.cropArea.width - 5, y: this.cropArea.height - 5 },
+			n: { x: this.cropArea.width / 2 - 5, y: -5 },
+			s: { x: this.cropArea.width / 2 - 5, y: this.cropArea.height - 5 },
+			e: { x: this.cropArea.width - 5, y: this.cropArea.height / 2 - 5 },
+			w: { x: -5, y: this.cropArea.height / 2 - 5 }
+		};
+
+		this.cropHandles.forEach((handle) => {
+			const handleType = handle.dataset.handle;
+			if (handleType && handles[handleType as keyof typeof handles] && this.cropArea) {
+				const pos = handles[handleType as keyof typeof handles];
+				handle.style.left = `${this.cropArea.x + pos.x}px`;
+				handle.style.top = `${this.cropArea.y + pos.y}px`;
+				handle.style.display = this.isCropping ? "block" : "none";
+			}
+		});
+	}
+
 	startCropping(): void {
 		this.isCropping = true;
 		this.cropArea = null;
@@ -560,16 +683,191 @@ export class ImageRenderer extends BaseRenderer {
 		if (this.cropOverlay) {
 			this.cropOverlay.style.display = "block";
 		}
+		this.showCropHandles();
+	}
+
+	showCropHandles(): void {
+		this.cropHandles.forEach((handle) => {
+			handle.style.display = this.isCropping && this.cropArea ? "block" : "none";
+		});
+	}
+
+	hideCropHandles(): void {
+		this.cropHandles.forEach((handle) => {
+			handle.style.display = "none";
+		});
+	}
+
+	startCropResize(event: MouseEvent, handle: string): void {
+		event.preventDefault();
+		this.isResizingCrop = true;
+		this.activeHandle = handle;
+	}
+
+	startCropDrag(event: MouseEvent): void {
+		if (!this.cropArea) return;
+
+		event.preventDefault();
+		this.isDraggingCrop = true;
+
+		const rect = this.imageWrapper?.getBoundingClientRect();
+		if (rect) {
+			this.cropDragOffset = {
+				x: event.clientX - rect.left - this.cropArea.x,
+				y: event.clientY - rect.top - this.cropArea.y
+			};
+		}
+	}
+
+	updateCropResize(event: MouseEvent): void {
+		if (!this.isResizingCrop || !this.activeHandle || !this.cropArea) return;
+
+		const rect = this.imageWrapper?.getBoundingClientRect();
+		if (!rect) return;
+
+		const mouseX = event.clientX - rect.left;
+		const mouseY = event.clientY - rect.top;
+
+		let { x, y, width, height } = this.cropArea;
+
+		// Handle resize based on active handle
+		switch (this.activeHandle) {
+			case "nw":
+				width += x - mouseX;
+				height += y - mouseY;
+				x = mouseX;
+				y = mouseY;
+				break;
+			case "ne":
+				width = mouseX - x;
+				height += y - mouseY;
+				y = mouseY;
+				break;
+			case "sw":
+				width += x - mouseX;
+				height = mouseY - y;
+				x = mouseX;
+				break;
+			case "se":
+				width = mouseX - x;
+				height = mouseY - y;
+				break;
+			case "n":
+				height += y - mouseY;
+				y = mouseY;
+				break;
+			case "s":
+				height = mouseY - y;
+				break;
+			case "e":
+				width = mouseX - x;
+				break;
+			case "w":
+				width += x - mouseX;
+				x = mouseX;
+				break;
+		}
+
+		// Ensure minimum size
+		width = Math.max(20, width);
+		height = Math.max(20, height);
+
+		// Apply aspect ratio constraint if set
+		if (this.aspectRatio && ["nw", "ne", "sw", "se"].includes(this.activeHandle)) {
+			const currentRatio = width / height;
+			if (currentRatio > this.aspectRatio) {
+				width = height * this.aspectRatio;
+			} else {
+				height = width / this.aspectRatio;
+			}
+
+			// Adjust position for corner handles to maintain aspect ratio
+			if (this.activeHandle === "nw") {
+				x = this.cropArea.x + this.cropArea.width - width;
+				y = this.cropArea.y + this.cropArea.height - height;
+			} else if (this.activeHandle === "ne") {
+				y = this.cropArea.y + this.cropArea.height - height;
+			} else if (this.activeHandle === "sw") {
+				x = this.cropArea.x + this.cropArea.width - width;
+			}
+		}
+
+		this.cropArea = { x, y, width, height };
+		this.updateCropDisplay();
+	}
+
+	updateCropDrag(event: MouseEvent): void {
+		if (!this.isDraggingCrop || !this.cropArea) return;
+
+		const rect = this.imageWrapper?.getBoundingClientRect();
+		if (!rect) return;
+
+		const mouseX = event.clientX - rect.left;
+		const mouseY = event.clientY - rect.top;
+
+		let newX = mouseX - this.cropDragOffset.x;
+		let newY = mouseY - this.cropDragOffset.y;
+
+		// Constrain to image bounds
+		const maxX = rect.width - this.cropArea.width;
+		const maxY = rect.height - this.cropArea.height;
+
+		newX = Math.max(0, Math.min(maxX, newX));
+		newY = Math.max(0, Math.min(maxY, newY));
+
+		this.cropArea = {
+			x: newX,
+			y: newY,
+			width: this.cropArea.width,
+			height: this.cropArea.height
+		};
+
+		this.updateCropDisplay();
+	}
+
+	updateCropDisplay(): void {
+		if (!this.cropOverlay || !this.cropArea) return;
+
+		this.cropOverlay.style.left = `${this.cropArea.x}px`;
+		this.cropOverlay.style.top = `${this.cropArea.y}px`;
+		this.cropOverlay.style.width = `${this.cropArea.width}px`;
+		this.cropOverlay.style.height = `${this.cropArea.height}px`;
+
+		this.updateHandlePositions();
+	}
+
+	// Aspect ratio methods
+	setAspectRatio(ratio: number | null): void {
+		this.aspectRatio = ratio;
+
+		// Apply to existing crop area if it exists
+		if (this.cropArea && ratio) {
+			const currentRatio = this.cropArea.width / this.cropArea.height;
+			if (Math.abs(currentRatio - ratio) > 0.01) {
+				// Adjust height to match aspect ratio
+				const newHeight = this.cropArea.width / ratio;
+				this.cropArea.height = newHeight;
+				this.updateCropDisplay();
+			}
+		}
+	}
+
+	getAspectRatio(): number | null {
+		return this.aspectRatio;
 	}
 
 	stopCropping(): void {
 		this.isCropping = false;
+		this.isDraggingCrop = false;
+		this.isResizingCrop = false;
+		this.activeHandle = null;
 		if (this.imageWrapper) {
 			this.imageWrapper.style.cursor = "grab";
 		}
 		if (this.cropOverlay) {
 			this.cropOverlay.style.display = "none";
 		}
+		this.hideCropHandles();
 		this.cropArea = null;
 		this.cropStartPoint = null;
 	}
@@ -618,10 +916,32 @@ export class ImageRenderer extends BaseRenderer {
 	updateCropOverlay(startX: number, startY: number, currentX: number, currentY: number): void {
 		if (!this.cropOverlay) return;
 
-		const x = Math.min(startX, currentX);
-		const y = Math.min(startY, currentY);
-		const width = Math.abs(currentX - startX);
-		const height = Math.abs(currentY - startY);
+		let x = Math.min(startX, currentX);
+		let y = Math.min(startY, currentY);
+		let width = Math.abs(currentX - startX);
+		let height = Math.abs(currentY - startY);
+
+		// Apply aspect ratio constraint if set
+		if (this.aspectRatio) {
+			const currentRatio = width / height;
+			if (currentRatio > this.aspectRatio) {
+				width = height * this.aspectRatio;
+			} else {
+				height = width / this.aspectRatio;
+			}
+
+			// Readjust position to center the constrained area
+			if (currentX < startX) {
+				x = startX - width;
+			} else {
+				x = startX;
+			}
+			if (currentY < startY) {
+				y = startY - height;
+			} else {
+				y = startY;
+			}
+		}
 
 		this.cropOverlay.style.left = `${x}px`;
 		this.cropOverlay.style.top = `${y}px`;
@@ -629,6 +949,7 @@ export class ImageRenderer extends BaseRenderer {
 		this.cropOverlay.style.height = `${height}px`;
 
 		this.cropArea = { x, y, width, height };
+		this.updateHandlePositions();
 	}
 
 	applyFilters(): void {
@@ -775,6 +1096,12 @@ export class ImageRenderer extends BaseRenderer {
 			this.resizeObserver.disconnect();
 		}
 
+		// Clean up crop handles
+		this.cropHandles.forEach((handle) => {
+			handle.remove();
+		});
+		this.cropHandles = [];
+
 		document.removeEventListener("mousemove", this.handleMouseMove);
 		document.removeEventListener("mouseup", this.handleMouseUp);
 		document.removeEventListener("keydown", this.handleKeyDown);
@@ -786,6 +1113,8 @@ export class ImageRenderer extends BaseRenderer {
 		this.cropOverlay = null;
 		this.isDragging = false;
 		this.isCropping = false;
+		this.isDraggingCrop = false;
+		this.isResizingCrop = false;
 	}
 }
 

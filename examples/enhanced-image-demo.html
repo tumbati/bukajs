@@ -114,7 +114,7 @@
         <div class="instructions">
             <h3>Enhanced Image Renderer Features:</h3>
             <ul>
-                <li><strong>Cropping:</strong> Click "Start Crop" then drag on image to select area, click "Apply Crop" to crop</li>
+                <li><strong>Cropping:</strong> Click "Start Crop" then drag to select area. Drag corners/edges to resize, drag center to move. Use aspect ratio dropdown to constrain proportions.</li>
                 <li><strong>Filters:</strong> Use sliders to adjust brightness, contrast, saturation, etc.</li>
                 <li><strong>Keyboard Shortcuts:</strong> Ctrl+C (crop), Ctrl+R (reset), Escape (cancel crop)</li>
                 <li><strong>Export:</strong> Download your edited image in PNG, JPEG, or WebP format</li>
@@ -131,6 +131,19 @@
                 <button id="startCrop">Start Crop</button>
                 <button id="applyCrop" disabled>Apply Crop</button>
                 <button id="cancelCrop" disabled>Cancel Crop</button>
+            </div>
+
+            <!-- Aspect Ratio Controls -->
+            <div class="control-group">
+                <label for="aspectRatio">Aspect:</label>
+                <select id="aspectRatio">
+                    <option value="">Free</option>
+                    <option value="1">1:1 (Square)</option>
+                    <option value="1.333">4:3</option>
+                    <option value="1.777">16:9</option>
+                    <option value="0.75">3:4 (Portrait)</option>
+                    <option value="0.5625">9:16 (Vertical)</option>
+                </select>
             </div>
 
             <!-- Filter Controls -->
@@ -225,6 +238,7 @@
             const startCropBtn = document.getElementById('startCrop');
             const applyCropBtn = document.getElementById('applyCrop');
             const cancelCropBtn = document.getElementById('cancelCrop');
+            const aspectRatioSelect = document.getElementById('aspectRatio');
 
             startCropBtn.addEventListener('click', () => {
                 renderer.startCropping();
@@ -241,6 +255,13 @@
             cancelCropBtn.addEventListener('click', () => {
                 renderer.stopCropping();
                 resetCropButtons();
+            });
+
+            aspectRatioSelect.addEventListener('change', (e) => {
+                const value = e.target.value;
+                const ratio = value ? parseFloat(value) : null;
+                renderer.setAspectRatio(ratio);
+                console.log('Aspect ratio set to:', ratio);
             });
 
             function resetCropButtons() {
@@ -287,6 +308,7 @@
                 renderer.resetImage();
                 resetSliders();
                 resetCropButtons();
+                aspectRatioSelect.value = '';
             });
 
             // Export buttons
