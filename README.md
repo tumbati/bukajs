@@ -1,6 +1,6 @@
 # @tumbati/bukajs
 
-Universal document viewer library supporting PDF, DOCX, Images, XLSX, and PowerPoint files.
+A document viewer library supporting PDF, DOCX, Images, XLSX, and PowerPoint files.
 
 [![npm version](https://badge.fury.io/js/@tumbati%2Fbukajs.svg?icon=si%3Anpm)](https://badge.fury.io/js/@tumbati%2Fbukajs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -151,14 +151,14 @@ The ImageRenderer includes professional image editing capabilities:
 
 ### Image Filters & Adjustments
 - **Brightness** (0-200%): Brighten or darken images
-- **Contrast** (0-200%): Increase or decrease contrast  
+- **Contrast** (0-200%): Increase or decrease contrast
 - **Saturation** (0-200%): Enhance or reduce color intensity
 - **Hue Rotation** (0-360°): Color shift effects
 - **Blur** (0-20px): Gaussian blur effects
 - **Sepia & Grayscale**: One-click vintage effects
 
 ### Interactive Controls
-- **Keyboard Shortcuts**: 
+- **Keyboard Shortcuts**:
   - `Ctrl+C`: Start/apply crop
   - `Ctrl+R`: Reset all changes
   - `Escape`: Cancel crop mode
@@ -304,34 +304,34 @@ class CustomRenderer extends BaseRenderer {
   async load(source) {
     // Load document from File, Blob, or URL
   }
-  
+
   async render() {
     // Render current page/view
   }
-  
+
   async goto(page) {
     // Navigate to specific page
   }
-  
+
   async setZoom(factor) {
     // Apply zoom transformation
   }
-  
+
   async search(query) {
     // Search document content
     return []; // SearchResult[]
   }
-  
+
   addAnnotation(annotation) {
     // Add annotation with relative coordinates
     return annotationId;
   }
-  
+
   exportAnnotations() {
     // Export annotations for persistence
     return annotations;
   }
-  
+
   importAnnotations(annotations) {
     // Import previously saved annotations
   }
@@ -443,12 +443,12 @@ const viewer = new BukaViewer(container, {
       --background-color: #f8fafc;
       --border-color: #e2e8f0;
     }
-    
+
     .buka-toolbar {
       background: var(--background-color);
       border-bottom: 1px solid var(--border-color);
     }
-    
+
     .buka-btn:hover {
       background: var(--primary-color);
       color: white;
@@ -463,7 +463,7 @@ Comprehensive examples are available in the `/examples` directory:
 
 - **Basic HTML** (`examples/basic/`): Simple integration example
 - **React** (`examples/react/`): Complete React application with TypeScript
-- **Vue** (`examples/vue/`): Vue 3 Composition API integration  
+- **Vue** (`examples/vue/`): Vue 3 Composition API integration
 - **Annotations** (`examples/annotations/`): Advanced annotation features
 - **Enhanced Image Demo** (`examples/enhanced-image-demo.html`): Image editing showcase
 
@@ -475,7 +475,7 @@ cd examples/react
 npm install
 npm run dev
 
-# Vue example  
+# Vue example
 cd examples/vue
 npm install
 npm run dev
@@ -503,7 +503,7 @@ open examples/enhanced-image-demo.html
 ### Optional Dependencies (Auto-loaded)
 - `pdfjs-dist` - PDF rendering
 - `mammoth` - DOCX to HTML conversion
-- `xlsx` - Excel file parsing  
+- `xlsx` - Excel file parsing
 - `localforage` - Offline caching
 
 ## Performance

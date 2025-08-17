@@ -209,19 +209,19 @@ describe('BukaViewer', () => {
       // Arrange
       const viewer = new BukaViewer(container);
       const pdfFile = new File(['pdf content'], 'test.pdf', { type: 'application/pdf' });
-      
+
       // Act
       await viewer.load(pdfFile);
-      
+
       // Assert
       expect(viewer.getTotalPages()).toBeGreaterThan(0);
     });
-    
+
     test('should handle invalid file formats gracefully', async () => {
       // Arrange
       const viewer = new BukaViewer(container);
       const invalidFile = new File(['invalid'], 'test.invalid');
-      
+
       // Act & Assert
       await expect(viewer.load(invalidFile)).rejects.toThrow('Unsupported format');
     });
@@ -439,31 +439,31 @@ The main orchestrator that manages the overall viewing experience:
 ```typescript
 class BukaViewer {
   constructor(container: HTMLElement, options: ViewerOptions)
-  
+
   // Document management
   async load(source: DocumentSource): Promise<void>
   getCurrentPage(): number
   getTotalPages(): number
-  
+
   // Navigation and view control
   async goto(page: number): Promise<boolean>
   getZoom(): number
   async setZoom(factor: number): Promise<void>
-  
+
   // Search functionality
   async search(query: string): Promise<SearchResult[]>
-  
+
   // Annotation system
   addAnnotation(annotation: Annotation): string
   removeAnnotation(id: string): boolean
   exportAnnotations(): Annotation[]
   importAnnotations(annotations: Annotation[]): void
-  
+
   // Event handling
   on(event: string, callback: EventCallback): void
   off(event: string, callback: EventCallback): void
   emit(event: string, data: any): void
-  
+
   // Lifecycle
   destroy(): void
 }
@@ -478,22 +478,22 @@ abstract class BaseRenderer {
   abstract load(source: DocumentSource): Promise<void>
   abstract render(): Promise<void>
   abstract search(query: string): Promise<SearchResult[]>
-  
+
   // Optional methods with default implementations
   async goto(page: number): Promise<boolean>
   async setZoom(factor: number): Promise<void>
-  
+
   // Annotation system
   addAnnotation(annotation: Annotation): string
   removeAnnotation(id: string): boolean
   exportAnnotations(): Annotation[]
   importAnnotations(annotations: Annotation[]): void
-  
+
   // Event handling
   on(event: string, callback: EventCallback): void
   off(event: string, callback: EventCallback): void
   emit(event: string, data: any): void
-  
+
   // Lifecycle
   destroy(): void
 }
@@ -521,11 +521,11 @@ export class CustomRenderer extends BaseRenderer {
     try {
       // Load and parse the document
       this.document = await this.parseDocument(source);
-      
+
       // Update renderer state
       this.totalPages = this.document.getPageCount();
       this.currentPage = 1;
-      
+
       // Emit loaded event
       this.emit(EVENTS.DOCUMENT_LOADED, {
         totalPages: this.totalPages,
@@ -539,15 +539,15 @@ export class CustomRenderer extends BaseRenderer {
 
   async render(): Promise<void> {
     if (!this.document) return;
-    
+
     try {
       // Clear container
       this.container.innerHTML = '';
-      
+
       // Render current page
       const pageElement = await this.document.renderPage(this.currentPage);
       this.container.appendChild(pageElement);
-      
+
       // Apply zoom and transformations
       this.applyTransformations(pageElement);
     } catch (error) {
@@ -558,15 +558,15 @@ export class CustomRenderer extends BaseRenderer {
 
   async search(query: string): Promise<SearchResult[]> {
     if (!this.document || !query.trim()) return [];
-    
+
     const results = this.document.search(query);
-    
+
     this.emit(EVENTS.SEARCH_RESULT, {
       query,
       results,
       currentIndex: 0
     });
-    
+
     return results;
   }
 
@@ -574,7 +574,7 @@ export class CustomRenderer extends BaseRenderer {
   private async parseDocument(source: DocumentSource): Promise<CustomDocument> {
     // Implementation specific parsing logic
   }
-  
+
   private applyTransformations(element: HTMLElement): void {
     // Apply zoom, rotation, etc.
   }
@@ -653,18 +653,18 @@ class Renderer extends BaseRenderer {
   destroy(): void {
     // Clean up event listeners
     this.eventListeners.clear();
-    
+
     // Release object URLs
     if (this.objectUrl) {
       URL.revokeObjectURL(this.objectUrl);
     }
-    
+
     // Clear DOM references
     this.container.innerHTML = '';
-    
+
     // Release large objects
     this.documentData = null;
-    
+
     // Call parent cleanup
     super.destroy();
   }
@@ -709,18 +709,18 @@ private async loadDocument(source: DocumentSource): Promise<void> {
     if (source.file && source.file.size > MAX_FILE_SIZE) {
       throw new Error('File size exceeds maximum limit');
     }
-    
+
     // Validate MIME type
     if (!this.isValidMimeType(source.file?.type)) {
       throw new Error('Unsupported file type');
     }
-    
+
     // Process with timeout
     const result = await Promise.race([
       this.parseDocument(source),
       this.createTimeoutPromise(PROCESSING_TIMEOUT)
     ]);
-    
+
     return result;
   } catch (error) {
     // Log securely without exposing details
@@ -773,7 +773,7 @@ describe('DocumentDetector', () => {
   test('should detect PDF files correctly', () => {
     const detector = new DocumentDetector();
     const pdfFile = new File(['%PDF-1.4'], 'test.pdf', { type: 'application/pdf' });
-    
+
     expect(detector.detect(pdfFile)).toBe(SUPPORTED_FORMATS.PDF);
   });
 });
@@ -787,9 +787,9 @@ describe('BukaViewer Integration', () => {
   test('should load and render PDF documents', async () => {
     const viewer = new BukaViewer(container);
     const mockPdfFile = createMockPdfFile();
-    
+
     await viewer.load(mockPdfFile);
-    
+
     expect(viewer.getTotalPages()).toBeGreaterThan(0);
     expect(container.querySelector('.buka-document')).toBeTruthy();
   });
