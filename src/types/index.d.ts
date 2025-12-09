@@ -1,3 +1,5 @@
+import { ImageFilterState } from "../renderers/image";
+
 export interface DocumentSource {
 	url?: string;
 	file?: File | Blob;
@@ -226,10 +228,8 @@ export declare class ImageRenderer extends BaseRenderer {
 	handleTouchMove(event: MouseEvent): void;
 	handleTouchEnd(event: MouseEvent): void;
 	handleWheel(event: WheelEvent): void;
-	setFitMode(mode: "fit-width" | "fit-height" | "fit-page" | "original"): void;
 	applyFitMode(): void;
 	centerImage(): void;
-	resetView(): void;
 	getImageTitle(source: string | File | Blob): string;
 	getViewInfo(): void;
 	brighten(amount: number = 10): void;
@@ -244,10 +244,6 @@ export declare class ImageRenderer extends BaseRenderer {
 	toSepia(): void;
 	getFilters(): ImageFilterState;
 	getCropArea(): CropArea | null;
-	fitToWidth(): void;
-	fitToHeight(): void;
-	fitToPage(): void;
-	actualSize(): void;
 	createCropHandles(): void;
 	updateHandlePositions(): void;
 	startCropping(): void;
