@@ -1,4 +1,4 @@
-import { ImageFilterState } from "../renderers/image";
+import { CropArea, ImageFilterState } from "../renderers/image";
 
 export interface DocumentSource {
 	url?: string;
