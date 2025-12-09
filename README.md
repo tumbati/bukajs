@@ -590,7 +590,7 @@ MIT © TUMBATI LTD
 - 📖 [Documentation](https://github.com/tumbati/bukajs#readme)
 - 🐛 [Issues](https://github.com/tumbati/bukajs/issues)
 - 💬 [Discussions](https://github.com/tumbati/bukajs/discussions)
-- 📧 [Email Support](mailto:support@tumbati.com)
+- 📧 [Email Support](mailto:info@tumbati.com)
 
 ---
 
