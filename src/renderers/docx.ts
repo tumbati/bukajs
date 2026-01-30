@@ -841,5 +841,3 @@ export class DocxRenderer extends BaseRenderer {
 }
 
 RendererFactory.register(SUPPORTED_FORMATS.DOCX, DocxRenderer);
-
-export default DocxRenderer;

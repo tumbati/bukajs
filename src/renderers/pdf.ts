@@ -682,5 +682,3 @@ export class PDFRenderer extends BaseRenderer {
 }
 
 RendererFactory.register(SUPPORTED_FORMATS.PDF, PDFRenderer);
-
-export default PDFRenderer;

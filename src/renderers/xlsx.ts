@@ -712,5 +712,3 @@ RendererFactory.register(SUPPORTED_FORMATS.XLSX, XlsxRenderer);
 
 const CSV_MIME_TYPE = "text/csv";
 RendererFactory.register(CSV_MIME_TYPE, XlsxRenderer);
-
-export default XlsxRenderer;

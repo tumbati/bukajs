@@ -729,5 +729,3 @@ export class PresentationRenderer extends BaseRenderer {
 
 RendererFactory.register(SUPPORTED_FORMATS.PPTX, PresentationRenderer);
 RendererFactory.register(SUPPORTED_FORMATS.PPT, PresentationRenderer);
-
-export default PresentationRenderer;

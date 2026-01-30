@@ -58,7 +58,18 @@ export class ImageRenderer extends BaseRenderer {
 	public isResizingCrop: boolean;
 	public activeHandle: string | null;
 	public aspectRatio: number | null;
+	public fixedWidth: number | null;
 	public cropDragOffset: { x: number; y: number };
+
+	// Bound event handlers for clean removal
+	private boundHandleMouseDown: (e: MouseEvent) => void;
+	private boundHandleMouseMove: (e: MouseEvent) => void;
+	private boundHandleMouseUp: (e: MouseEvent) => void;
+	private boundHandleTouchStart: (e: TouchEvent) => void;
+	private boundHandleTouchMove: (e: TouchEvent) => void;
+	private boundHandleTouchEnd: (e: TouchEvent) => void;
+	private boundHandleWheel: (e: WheelEvent) => void;
+	private boundHandleKeyDown: (e: KeyboardEvent) => void;
 
 	// Getter for consistent API with other renderers
 	override get zoom(): number {
@@ -101,8 +112,19 @@ export class ImageRenderer extends BaseRenderer {
 		this.isDraggingCrop = false;
 		this.isResizingCrop = false;
 		this.activeHandle = null;
-		this.aspectRatio = null;
+		this.aspectRatio = (options as any).aspectRatio || null;
+		this.fixedWidth = (options as any).fixedWidth || null;
 		this.cropDragOffset = { x: 0, y: 0 };
+
+		// Initialize bound handlers
+		this.boundHandleMouseDown = this.handleMouseDown.bind(this);
+		this.boundHandleMouseMove = this.handleMouseMove.bind(this);
+		this.boundHandleMouseUp = this.handleMouseUp.bind(this);
+		this.boundHandleTouchStart = this.handleTouchStart.bind(this);
+		this.boundHandleTouchMove = this.handleTouchMove.bind(this);
+		this.boundHandleTouchEnd = this.handleTouchEnd.bind(this);
+		this.boundHandleWheel = this.handleWheel.bind(this);
+		this.boundHandleKeyDown = this.handleKeyDown.bind(this);
 
 		this.totalPages = 1;
 		this.currentPage = 1;
@@ -185,19 +207,19 @@ export class ImageRenderer extends BaseRenderer {
 	}
 
 	bindEvents(): void {
-		this.imageWrapper?.addEventListener("mousedown", this.handleMouseDown.bind(this));
-		document.addEventListener("mousemove", this.handleMouseMove.bind(this));
-		document.addEventListener("mouseup", this.handleMouseUp.bind(this));
+		this.imageWrapper?.addEventListener("mousedown", this.boundHandleMouseDown);
+		document.addEventListener("mousemove", this.boundHandleMouseMove);
+		document.addEventListener("mouseup", this.boundHandleMouseUp);
 
-		this.imageWrapper?.addEventListener("touchstart", this.handleTouchStart.bind(this), {
+		this.imageWrapper?.addEventListener("touchstart", this.boundHandleTouchStart, {
 			passive: false
 		});
-		this.imageWrapper?.addEventListener("touchmove", this.handleTouchMove.bind(this), {
+		this.imageWrapper?.addEventListener("touchmove", this.boundHandleTouchMove, {
 			passive: false
 		});
-		this.imageWrapper?.addEventListener("touchend", this.handleTouchEnd.bind(this));
+		this.imageWrapper?.addEventListener("touchend", this.boundHandleTouchEnd);
 
-		this.imageWrapper?.addEventListener("wheel", this.handleWheel.bind(this), {
+		this.imageWrapper?.addEventListener("wheel", this.boundHandleWheel, {
 			passive: false
 		});
 
@@ -213,7 +235,7 @@ export class ImageRenderer extends BaseRenderer {
 			this.resetView();
 		});
 
-		document.addEventListener("keydown", this.handleKeyDown.bind(this));
+		document.addEventListener("keydown", this.boundHandleKeyDown);
 	}
 
 	async load(source: string | File | Blob): Promise<void> {
@@ -768,11 +790,37 @@ export class ImageRenderer extends BaseRenderer {
 				break;
 		}
 
-		// Ensure minimum size
-		width = Math.max(20, width);
+		// Apply fixedWidth constraint
+		if (this.fixedWidth !== null) {
+			width = this.fixedWidth;
+			if (this.activeHandle === "e" || this.activeHandle === "w") {
+				x = this.cropArea.x;
+			}
+		} else {
+			width = Math.max(20, width);
+		}
+
 		height = Math.max(20, height);
 
-		// Apply aspect ratio constraint if set
+		// Constrain to image bounds
+		if (rect) {
+			if (x < 0) {
+				width += x;
+				x = 0;
+			}
+			if (y < 0) {
+				height += y;
+				y = 0;
+			}
+			if (x + width > rect.width) {
+				width = rect.width - x;
+			}
+			if (y + height > rect.height) {
+				height = rect.height - y;
+			}
+		}
+
+		// Apply aspect ratio constraint if set (overrides manual bounds but respects fixedWidth)
 		if (this.aspectRatio && ["nw", "ne", "sw", "se"].includes(this.activeHandle)) {
 			const currentRatio = width / height;
 			if (currentRatio > this.aspectRatio) {
@@ -781,7 +829,6 @@ export class ImageRenderer extends BaseRenderer {
 				height = width / this.aspectRatio;
 			}
 
-			// Adjust position for corner handles to maintain aspect ratio
 			if (this.activeHandle === "nw") {
 				x = this.cropArea.x + this.cropArea.width - width;
 				y = this.cropArea.y + this.cropArea.height - height;
@@ -840,11 +887,9 @@ export class ImageRenderer extends BaseRenderer {
 	setAspectRatio(ratio: number | null): void {
 		this.aspectRatio = ratio;
 
-		// Apply to existing crop area if it exists
 		if (this.cropArea && ratio) {
 			const currentRatio = this.cropArea.width / this.cropArea.height;
 			if (Math.abs(currentRatio - ratio) > 0.01) {
-				// Adjust height to match aspect ratio
 				const newHeight = this.cropArea.width / ratio;
 				this.cropArea.height = newHeight;
 				this.updateCropDisplay();
@@ -921,7 +966,15 @@ export class ImageRenderer extends BaseRenderer {
 		let width = Math.abs(currentX - startX);
 		let height = Math.abs(currentY - startY);
 
-		// Apply aspect ratio constraint if set
+		if (this.fixedWidth !== null) {
+			width = this.fixedWidth;
+			if (currentX < startX) {
+				x = startX - width;
+			} else {
+				x = startX;
+			}
+		}
+
 		if (this.aspectRatio) {
 			const currentRatio = width / height;
 			if (currentRatio > this.aspectRatio) {
@@ -930,7 +983,6 @@ export class ImageRenderer extends BaseRenderer {
 				height = width / this.aspectRatio;
 			}
 
-			// Readjust position to center the constrained area
 			if (currentX < startX) {
 				x = startX - width;
 			} else {
@@ -940,6 +992,25 @@ export class ImageRenderer extends BaseRenderer {
 				y = startY - height;
 			} else {
 				y = startY;
+			}
+		}
+
+		const rect = this.imageWrapper?.getBoundingClientRect();
+		if (rect) {
+			if (x < 0) {
+				if (this.fixedWidth === null) width += x;
+				x = 0;
+			}
+			if (y < 0) {
+				height += y;
+				y = 0;
+			}
+			if (x + width > rect.width) {
+				if (this.fixedWidth === null) width = rect.width - x;
+				else x = rect.width - width;
+			}
+			if (y + height > rect.height) {
+				height = rect.height - y;
 			}
 		}
 
@@ -1102,9 +1173,9 @@ export class ImageRenderer extends BaseRenderer {
 		});
 		this.cropHandles = [];
 
-		document.removeEventListener("mousemove", this.handleMouseMove);
-		document.removeEventListener("mouseup", this.handleMouseUp);
-		document.removeEventListener("keydown", this.handleKeyDown);
+		document.removeEventListener("mousemove", this.boundHandleMouseMove);
+		document.removeEventListener("mouseup", this.boundHandleMouseUp);
+		document.removeEventListener("keydown", this.boundHandleKeyDown);
 
 		this.imageElement = null;
 		this.canvasElement = null;
@@ -1121,5 +1192,3 @@ export class ImageRenderer extends BaseRenderer {
 RendererFactory.register(SUPPORTED_FORMATS.IMAGE_PNG, ImageRenderer);
 RendererFactory.register(SUPPORTED_FORMATS.IMAGE_JPEG, ImageRenderer);
 RendererFactory.register(SUPPORTED_FORMATS.IMAGE_SVG, ImageRenderer);
-
-export default ImageRenderer;

@@ -1,10 +1,9 @@
-import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
-import typescript from '@rollup/plugin-typescript';
+import resolve from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
-import postcss from 'rollup-plugin-postcss';
+import typescript from '@rollup/plugin-typescript';
 import { copyFileSync, mkdirSync } from 'fs';
-import { dirname } from 'path';
+import postcss from 'rollup-plugin-postcss';
 
 const production = process.env.NODE_ENV === 'production';
 
@@ -59,6 +58,7 @@ export default [
       file: 'dist/index.js',
       format: 'umd',
       name: 'BukaJS',
+      exports: 'named',
       sourcemap: !production,
       inlineDynamicImports: true,
       globals: {
@@ -202,7 +202,8 @@ export default [
       typescript({
         tsconfig: './tsconfig.json',
         declaration: false,
-        declarationMap: false
+        declarationMap: false,
+        sourceMap: !production
       }),
       postcss({
         extract: 'styles.css',
@@ -211,7 +212,8 @@ export default [
     ],
     output: {
       file: 'dist/styles.js',
-      format: 'esm'
+      format: 'esm',
+      sourcemap: !production
     }
   }
 ];
